@@ -121,3 +121,32 @@ export const gmailHeaders = {
     "return-path": ["<someone@gmail.example>"]
 };
 Object.assign(zone, { "PTR 7.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.e.f.0.0.4.0.0.0.0.0.0.0.0.0.0.0.0.f.0.0.f.0.8.b.d.0.1.0.0.2.ip6.arpa": [] });
+
+// ---- Internal (same-tenant Microsoft 365) message: synthetic copy of a real coworker message ----
+// Example names only (contoso.example, example tenant GUID); host names/IDs follow the Exchange Online shapes.
+export const internalHeaders = {
+    "received": [
+        "from DS7PR19MB5686.namprd19.prod.outlook.com (::1) by BYAPR19MB2967.namprd19.prod.outlook.com with HTTPS; Thu, 15 Oct 2026 10:41:52 +0000",
+        "from PH8PR19MB6951.namprd19.prod.outlook.com (2603:10b6:510:22c::21) by DS7PR19MB5686.namprd19.prod.outlook.com\r\n (2603:10b6:8:71::15) with Microsoft SMTP Server (version=TLS1_2,\r\n cipher=TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384) id 15.21.522.14; Thu, 15 Oct 2026 10:41:50 +0000",
+        "from PH8PR19MB6951.namprd19.prod.outlook.com ([fe80::46a1:74eb:70a2:6ca]) by PH8PR19MB6951.namprd19.prod.outlook.com\r\n ([fe80::46a1:74eb:70a2:6ca%4]) with mapi id 15.21.0522.012; Thu, 15 Oct 2026 10:41:50 +0000"
+    ],
+    "x-ms-exchange-organization-authas": ["Internal"],
+    "x-ms-exchange-organization-authmechanism": ["04"],
+    "x-ms-exchange-organization-authsource": ["PH8PR19MB6951.namprd19.prod.outlook.com"],
+    "authentication-results": ["mx.microsoft.com 1; dkim=none (message not signed) header.d=none;dmarc=none action=none header.from=contoso.example;"],
+    "x-ms-exchange-crosstenant-authas": ["Internal"],
+    "x-ms-exchange-crosstenant-id": ["00000000-1111-2222-3333-444444444444"],
+    "x-forefront-antispam-report": ["CIP:255.255.255.255;CTRY:;LANG:en;SCL:1;SRV:;IPV:NLI;SFV:NSPM;H:PH8PR19MB6951.namprd19.prod.outlook.com;PTR:;CAT:NONE;SFS:;DIR:INT;"],
+    "from": ["Alex Coworker <alex@contoso.example>"],
+    "subject": ["Lunch on Friday?"]
+};
+export const forgedInternalExternalHop = {
+    ...internalHeaders,
+    "received": ["from mail.attacker.example (mail.attacker.example [203.0.113.50]) by BYAPR19MB2967.namprd19.prod.outlook.com with ESMTPS; Thu, 15 Oct 2026 10:42:00 +0000",
+        ...internalHeaders.received],
+    "authentication-results": ["mx.microsoft.com 1; dkim=none (message not signed) header.d=none;dmarc=none action=none header.from=contoso.example;"]
+};
+export const forgedInternalForeignAR = {
+    ...internalHeaders,
+    "authentication-results": ["mx.evil.example.org; spf=pass smtp.mailfrom=contoso.example; dmarc=pass header.from=contoso.example"]
+};

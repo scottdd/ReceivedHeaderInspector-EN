@@ -39,6 +39,10 @@ A message carrying an untrusted, possibly forged `Authentication-Results` header
 
 ![Untrusted Authentication-Results warning](docs/img/forged-auth-results.png)
 
+An internal message between two users of the same Microsoft 365 tenant. It never left Exchange Online, so SPF, DKIM and DMARC show as N/A:
+
+![Internal message (same organization)](docs/img/internal.png)
+
 ### How results are decided
 - **Authentication-Results first.** The add-on trusts the topmost `Authentication-Results` header, or one whose server name matches the server in the topmost `Received` header, because your own mail server saw the real connection. Results are shown as "from Authentication-Results by <server>".
 - **Own checks as fallback.** If a result is missing, the add-on does its own DNS checks (SPF evaluation, DMARC record and alignment, reverse DNS) and labels them "own DNS check via <resolver>". DKIM signatures are not verified locally in this case and show as neutral.

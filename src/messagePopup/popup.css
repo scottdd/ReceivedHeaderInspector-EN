@@ -13,7 +13,7 @@ h2:first-child { margin-top: 0; }
 .verdict { border-radius: 6px; padding: 10px; color: #fff; margin-top: 6px; }
 .verdict b { font-size: 16px; display: block; }
 .verdict.authentic { background: #2e7d32; } .verdict.spoofed { background: #c62828; }
-.verdict.suspicious { background: #c77700; } .verdict.pending { background: #888; }
+.verdict.internal { background: #3d6a8f; } .verdict.suspicious { background: #c77700; } .verdict.pending { background: #888; }
 details#path { margin-top: 12px; border: 1px solid #ddd; border-radius: 4px; padding: 4px 8px; }
 summary { font-weight: bold; color: blue; cursor: pointer; }
 ol { padding-left: 18px; margin: 6px 0; } li { margin-bottom: 4px; word-break: break-all; }

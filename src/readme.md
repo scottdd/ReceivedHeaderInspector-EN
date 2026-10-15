@@ -1,3 +1,10 @@
+### Unreleased / 1.6.4 (English fork)
+- New verdict "Internal message (same organization)": a message between two users of one Microsoft 365 tenant never crosses the internet, so SPF/DKIM/DMARC/reverse DNS are shown as grey "N/A (internal)" rows. It is declared only when Exchange's `X-MS-Exchange-Organization-AuthAs: Internal` stamp (or `x-ms-exchange-crosstenant-authas: Internal`) is present, every Received hop is a Microsoft hop (Microsoft host names; ::1, fe80::, 2603:10b6:: or 2a01:111:: addresses only), and any Authentication-Results header comes from Microsoft (for example `mx.microsoft.com 1`).
+- A forged-looking stamp (stamp present but an outside hop or a non-Microsoft Authentication-Results header exists) is not trusted: the message is checked normally, capped at "Suspicious", and a warning row explains why.
+- Received parser: handles bare `(::1)` and fe80 addresses with a zone id (`fe80::1%4`).
+- Verdict: SPF fail together with an aligned DKIM signature that cannot be verified locally is now "Suspicious" rather than "Likely spoofed".
+- Tests: 59 (internal message fixture and forged-stamp negative cases).
+
 ### Version 1.6.3 (English fork)
 - IPv6 audit and fixes: IPv4-mapped IPv6 addresses (::ffff:a.b.c.d) are treated as IPv4 for SPF, reverse DNS and private-address detection; multicast ranges are skipped when picking the handoff hop; bracketed `[IPv6:...]` HELO literals are cleaned up for display.
 - Reverse DNS now forward-confirms every PTR name (up to 5), not just the first, and trailing dots in header rDNS names are removed.

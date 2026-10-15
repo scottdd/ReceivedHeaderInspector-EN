@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import * as L from "../src/messagePopup/lib.js";
 import { joinTxt, createDns } from "../src/messagePopup/dns.js";
-import { authenticHeaders, forgedARHeaders, v6Headers, v6NoArHeaders, m365Headers, gmailHeaders, spoofHeaders, mockDns, zone } from "./fixtures.js";
+import { authenticHeaders, forgedARHeaders, v6Headers, v6NoArHeaders, m365Headers, gmailHeaders, internalHeaders, forgedInternalExternalHop, forgedInternalForeignAR, spoofHeaders, mockDns, zone } from "./fixtures.js";
 
 let pass = 0, fail = 0;
 async function test(name, fn) {
@@ -334,5 +334,64 @@ await test("regression: SES-style mail (Return-Path on bounce domain) with align
     assert.equal(L.verdict("example.com", { ...r.confirm, spf: { result: "fail" } }).level, "suspicious");
     assert.equal(L.verdict("example.com", { ...r.confirm, spf: { result: "fail" }, dkimUnverifiedAligned: false }).level, "spoofed");
 });
+// ============ internal (same-tenant Microsoft 365) ============
+await test("internal: Received parser handles bare (::1), fe80 with %zone in brackets, bare zone form", () => {
+    const r = internalHeaders.received.map(L.parseReceived);
+    assert.equal(r[0].ip, "::1"); assert.equal(r[0].by, "byapr19mb2967.namprd19.prod.outlook.com");
+    assert.equal(r[1].ip, "2603:10b6:510:22c::21"); assert.equal(r[1].helo, "ph8pr19mb6951.namprd19.prod.outlook.com");
+    assert.equal(r[2].ip, "fe80::46a1:74eb:70a2:6ca"); assert.equal(r[2].by, "ph8pr19mb6951.namprd19.prod.outlook.com");
+    assert.equal(L.parseReceived("from host.contoso.example (fe80::1%4) by x.outlook.com with mapi; Mon, 1 Jan 2026").ip, "fe80::1");
+    assert.equal(L.parseReceived("from host.contoso.example ([fe80::1%eth0]) by x.outlook.com; Mon, 1 Jan 2026").ip, "fe80::1");
+    assert.equal(L.normalizeIP("[fe80::1%4]"), "fe80::1");
+    assert.ok(!L.isPublicIP("fe80::46a1:74eb:70a2:6ca%4"));
+});
+await test("internal: authserv-id with version number ('mx.microsoft.com 1') parses", () => {
+    const a = L.parseAuthResults(internalHeaders["authentication-results"][0]);
+    assert.equal(a.authserv, "mx.microsoft.com"); assert.deepEqual(a.results.map(r => r.method + "=" + r.result), ["dkim=none", "dmarc=none"]);
+    assert.ok(L.isMicrosoftHost("mx.microsoft.com") && L.isMicrosoftHost("a.b.prod.outlook.com") && !L.isMicrosoftHost("evil-outlook.com.example.org"));
+});
+await test("internal: stamp + all-Microsoft path + Microsoft AR → Internal verdict, N/A rows, no DNS", async () => {
+    const queries = []; const spy = { ...dnsV6, txt: n => (queries.push(n), dnsV6.txt(n)), a: n => (queries.push(n), dnsV6.a(n)), aaaa: n => (queries.push(n), dnsV6.aaaa(n)), ptr: n => (queries.push(n), dnsV6.ptr(n)) };
+    const r = await L.analyze(internalHeaders, spy);
+    assert.equal(r.verdict.level, "internal"); assert.equal(r.verdict.key, "reasonInternal");
+    assert.equal(r.confirm.internal, true);
+    for (const k of ["spf", "dkim", "dmarc", "rdns"]) assert.equal(r.confirm[k].result, "na", k);
+    assert.deepEqual(queries, []);
+    assert.equal(r.claim.handoff.hop.ip, "2603:10b6:510:22c::21"); // Microsoft front-end hop, not ::1 / fe80
+    assert.equal(r.claim.from.domain, "contoso.example");
+});
+await test("internal: crosstenant-authas alone also counts; stamp value is case-insensitive", async () => {
+    const h = { ...internalHeaders }; delete h["x-ms-exchange-organization-authas"]; h["x-ms-exchange-crosstenant-authas"] = ["internal"];
+    assert.equal(L.detectInternal(h).state, "internal");
+    delete h["x-ms-exchange-crosstenant-authas"]; h["x-ms-exchange-organization-authas"] = ["Anonymous"];
+    assert.equal(L.detectInternal(h).state, "none");
+});
+await test("internal: no stamp, all-Microsoft path → not internal, no warning", async () => {
+    const h = { ...internalHeaders }; delete h["x-ms-exchange-organization-authas"]; delete h["x-ms-exchange-crosstenant-authas"];
+    const r = await L.analyze(h, dnsV6);
+    assert.notEqual(r.verdict.level, "internal"); assert.equal(r.confirm.internalStampWarning, null);
+});
+await test("internal NEGATIVE: AuthAs: Internal forged on a message with an external hop → not Internal, warning, capped at Suspicious", async () => {
+    assert.deepEqual(L.detectInternal(forgedInternalExternalHop), { state: "forged", reason: "path" });
+    const r = await L.analyze(forgedInternalExternalHop, dnsV6);
+    assert.notEqual(r.verdict.level, "internal"); assert.ok(!r.confirm.internal);
+    assert.equal(r.confirm.internalStampWarning.reason, "path");
+    assert.notEqual(r.verdict.level, "authentic");
+});
+await test("internal NEGATIVE: stamp + Microsoft path but foreign Authentication-Results → not Internal, warning", async () => {
+    assert.deepEqual(L.detectInternal(forgedInternalForeignAR), { state: "forged", reason: "ar", authserv: "mx.evil.example.org" });
+    const r = await L.analyze(forgedInternalForeignAR, dnsV6);
+    assert.notEqual(r.verdict.level, "internal"); assert.equal(r.confirm.internalStampWarning.reason, "ar");
+    assert.equal(r.verdict.level, "suspicious"); // AR claims dmarc=pass, but the forged stamp docks authentic to suspicious
+    assert.equal(r.verdict.key, "reasonDockedInternalStamp");
+});
+await test("internal NEGATIVE: Microsoft hostnames but public Microsoft IPv4 hop (cross-tenant) is not an internal path", () => {
+    const h = { ...internalHeaders, received: ["from NAM_obe.outbound.protection.outlook.example (x.outbound.protection.outlook.com [40.107.95.71]) by BYAPR19MB2967.namprd19.prod.outlook.com with ESMTPS; Thu, 15 Oct 2026 10:42:00 +0000"] };
+    assert.equal(L.detectInternal(h).state, "forged");
+});
+await test("internal: M365 inbound from the internet without the stamp is unaffected (still Suspicious/authentic by normal rules)", async () => {
+    const r = await L.analyze(m365Headers, dnsV6); assert.equal(r.verdict.level, "authentic");
+});
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

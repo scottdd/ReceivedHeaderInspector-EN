@@ -190,5 +190,38 @@
   },
   "reasonSpfFailDkimUnverified": {
     "message": "SPF en échec, mais une signature DKIM alignée pour $1 est présente et n'a pas pu être vérifiée localement."
+  },
+  "verdict_internal": {
+    "message": "Message interne (même organisation)"
+  },
+  "reasonInternal": {
+    "message": "Livré à l'intérieur de votre tenant Microsoft 365 ; n'a jamais transité par Internet, donc SPF/DKIM/DMARC ne s'appliquent pas."
+  },
+  "badgeNA": {
+    "message": "N/D"
+  },
+  "naInternal": {
+    "message": "N/D (interne)"
+  },
+  "naInternalNote": {
+    "message": "Livré à l'intérieur de Microsoft 365 ; aucun saut Internet à vérifier."
+  },
+  "internalHopNote": {
+    "message": "Saut interne Microsoft 365 (pas une remise depuis Internet)"
+  },
+  "internalStampWarnPath": {
+    "message": "Marqueur « interne » présent, mais le chemin de livraison n'était pas interne"
+  },
+  "internalStampWarnAr": {
+    "message": "Marqueur « interne » présent, mais un en-tête Authentication-Results provient d'un serveur non Microsoft ($1)"
+  },
+  "internalStampWarnDetail": {
+    "message": "L'en-tête X-MS-Exchange-...-AuthAs: Internal peut être falsifié par des tiers ; il a donc été ignoré et le message a été vérifié normalement."
+  },
+  "reasonDockedInternalStamp": {
+    "message": "Les vérifications réussissent pour $1, mais un marqueur « message interne » était présent sur un message non livré en interne (peut-être falsifié)."
+  },
+  "reasonMixedInternalStamp": {
+    "message": "Aucune authentification alignée valide pour $1, et un marqueur « message interne » était présent sur un message non livré en interne."
   }
 }

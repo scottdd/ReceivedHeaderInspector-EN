@@ -58,7 +58,7 @@ export function ipToBig(ip) {
 }
 // Text form used for display and DNS: bare address (no brackets / "IPv6:" tag); IPv4-mapped becomes dotted IPv4.
 export function normalizeIP(ip) {
-    const s = String(ip).replace(/^\[|\]$/g, "").replace(/^IPv6:/i, "");
+    const s = String(ip).replace(/^\[|\]$/g, "").replace(/^IPv6:/i, "").replace(/%[0-9a-z._~-]+$/i, "");
     const x = ipToBig(s);
     if (x && x.v === 4 && !isIPv4(s)) return [24n, 16n, 8n, 0n].map(sh => Number((x.n >> sh) & 255n)).join(".");
     return s;
@@ -136,7 +136,7 @@ export function parseReceived(raw) {
         r.hasFrom = true;
         const fp = fromM[1];
         let helo = (fp.match(/^(\S+)/) || ["", ""])[1];
-        const ipM = fp.match(/\[(?:IPv6:)?([0-9a-f:.]+)\]/i);
+        const ipM = fp.match(/\[(?:IPv6:)?([0-9a-f:.]+(?:%[0-9a-z._~-]+)?)\]/i);
         if (ipM && isIP(ipM[1])) r.ip = ipM[1];
         const par = fp.match(/\(([^)]*)\)/);
         if (par) {
@@ -148,12 +148,12 @@ export function parseReceived(raw) {
                 helo = heloM[1];
             } else {
                 const first = inner.split(/\s+/)[0];
-                const firstBare = first.replace(/^\[|\]$/g, "").replace(/^IPv6:/i, "");
+                const firstBare = first.replace(/^\[|\]$/g, "").replace(/^IPv6:/i, "").replace(/%[0-9a-z._~-]+$/i, "");
                 if (first && !first.startsWith("[") && /[a-z]/i.test(first) && first.includes(".") && !isIP(firstBare)) r.rdns = first;
                 else if (!r.ip && isIP(firstBare)) r.ip = firstBare; // Microsoft style: from host (ip)
             }
         }
-        if (!r.ip && isIP(helo.replace(/^\[|\]$/g, ""))) r.ip = helo.replace(/^\[|\]$/g, "");
+        if (!r.ip && isIP(helo.replace(/^\[|\]$/g, "").replace(/%[0-9a-z._~-]+$/i, ""))) r.ip = helo.replace(/^\[|\]$/g, "");
         if (r.ip) r.ip = normalizeIP(r.ip);
         r.helo = helo.replace(/^\[(?:IPv6:)?|\]$/gi, "").toLowerCase();
         r.rdns = r.rdns.replace(/\.$/, "").toLowerCase();
@@ -368,9 +368,49 @@ export function extractClaim(headers) {
     };
 }
 
+// ---------- internal (same-tenant Microsoft 365) detection ----------
+// Mail between two users of one Exchange Online tenant never leaves Microsoft's network, so SPF/DKIM/DMARC are not
+// evaluated normally. It is declared "internal" only when ALL hold:
+//  1. Exchange's stamp X-MS-Exchange-Organization-AuthAs (or x-ms-exchange-crosstenant-authas) is "Internal";
+//  2. every Received hop is a Microsoft hop (Microsoft host names; "from" addresses only ::1, fe80::/10, 2603:10b6::/32,
+//     2a01:111::/32 or absent) so no outside server touched the message;
+//  3. every Authentication-Results header comes from Microsoft (e.g. mx.microsoft.com) or has no authserv-id.
+// A stamp with a non-internal path or a foreign Authentication-Results is treated as a possible forgery (outsiders can
+// add that header themselves): the message is analyzed normally, capped at "Suspicious", and a warning row is shown.
+export function isMicrosoftHost(h) {
+    return /(^|\.)(outlook\.com|office365\.com|office\.com|microsoft\.com)$/i.test(String(h || "").replace(/\.$/, ""));
+}
+function isMicrosoftInternalIP(ip) {
+    if (!ip) return true;
+    return sameIP(ip, "::1") || cidrMatch(ip, "fe80::", 10) || cidrMatch(ip, "2603:10b6::", 32) || cidrMatch(ip, "2a01:111::", 32);
+}
+export function isMicrosoftHop(r) {
+    if (!r.by || !isMicrosoftHost(r.by)) return false;
+    if (!r.hasFrom) return true;
+    return (r.helo ? isMicrosoftHost(r.helo) : true) && isMicrosoftInternalIP(r.ip);
+}
+export function internalStamp(headers) {
+    return ["x-ms-exchange-organization-authas", "x-ms-exchange-crosstenant-authas"]
+        .some(n => getHeader(headers, n).some(v => /^internal$/i.test(v.trim())));
+}
+// -> { state: "none" | "internal" | "forged", reason?: "path" | "ar", authserv?: string }
+export function detectInternal(headers) {
+    if (!internalStamp(headers)) return { state: "none" };
+    const received = getHeader(headers, "received").map(parseReceived);
+    if (!received.length || !received.every(isMicrosoftHop)) return { state: "forged", reason: "path" };
+    const foreign = getHeader(headers, "authentication-results").map(parseAuthResults).find(a => a.authserv && !isMicrosoftHost(a.authserv));
+    if (foreign) return { state: "forged", reason: "ar", authserv: foreign.authserv };
+    return { state: "internal" };
+}
+
 // ---------- verdict ----------
 export function verdict(fromDomain, c) {
+    if (c.internal) return { level: "internal", key: "reasonInternal", subs: [fromDomain] };
     const v = baseVerdict(fromDomain, c);
+    if (c.internalStampWarning) {
+        if (v.level === "authentic") return { level: "suspicious", key: "reasonDockedInternalStamp", subs: [fromDomain], docked: true };
+        if (v.level === "suspicious") return { ...v, key: "reasonMixedInternalStamp" };
+    }
     if (c.arFlagged?.length) {
         if (v.level === "authentic") return { level: "suspicious", key: "reasonDockedAR", subs: [fromDomain], docked: true };
         if (v.level === "suspicious") return { ...v, key: "reasonMixedAR" };
@@ -395,6 +435,12 @@ function baseVerdict(fromDomain, c) {
 export async function analyze(headers, dns) {
     const claim = extractClaim(headers);
     const fromDomain = claim.from.domain;
+    const internal = detectInternal(headers);
+    if (internal.state === "internal") {
+        const na = { result: "na", items: [], source: { type: "none" } };
+        const confirm = { internal: true, spf: { ...na }, dkim: { ...na }, dmarc: { ...na }, rdns: { ...na }, arIgnored: 0, arFlagged: [] };
+        return { claim, confirm, internal, verdict: verdict(fromDomain, confirm) };
+    }
     const hop = claim.handoff?.hop || null;
     // Own-server host names: "by" of every hop from the top down to (and including) the handoff hop.
     const upTo = claim.handoff ? claim.handoff.index : 0;
@@ -445,6 +491,7 @@ export async function analyze(headers, dns) {
     const rdns = { ...(await checkRdns(hop?.ip, hop?.helo, ro.dns)), source: ro.source };
     const dkimUnverifiedAligned = !dkim.verified && claim.dkim.some(x => aligned(x.d, fromDomain));
     const confirm = { spf, dkim, dmarc, rdns, dkimUnverifiedAligned, arIgnored: ar.ignored.length, arFlagged: ar.flagged,
-        arTrustedBy: ar.trusted[0]?.authserv || "" };
-    return { claim, confirm, verdict: verdict(fromDomain, confirm) };
+        arTrustedBy: ar.trusted[0]?.authserv || "",
+        internalStampWarning: internal.state === "forged" ? { reason: internal.reason, authserv: internal.authserv || "" } : null };
+    return { claim, confirm, internal, verdict: verdict(fromDomain, confirm) };
 }

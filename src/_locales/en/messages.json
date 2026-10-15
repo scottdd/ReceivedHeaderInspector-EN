@@ -190,5 +190,38 @@
   },
   "reasonSpfFailDkimUnverified": {
     "message": "SPF fails, but an aligned DKIM signature for $1 is present and could not be verified locally."
+  },
+  "verdict_internal": {
+    "message": "Internal message (same organization)"
+  },
+  "reasonInternal": {
+    "message": "Delivered inside your Microsoft 365 tenant; never crossed the internet, so SPF/DKIM/DMARC don't apply."
+  },
+  "badgeNA": {
+    "message": "N/A"
+  },
+  "naInternal": {
+    "message": "N/A (internal)"
+  },
+  "naInternalNote": {
+    "message": "Delivered inside Microsoft 365; there is no internet hop to check."
+  },
+  "internalHopNote": {
+    "message": "Microsoft 365 internal hop (not an internet handoff)"
+  },
+  "internalStampWarnPath": {
+    "message": "Internal stamp present, but the delivery path was not internal"
+  },
+  "internalStampWarnAr": {
+    "message": "Internal stamp present, but an Authentication-Results header came from a non-Microsoft server ($1)"
+  },
+  "internalStampWarnDetail": {
+    "message": "The X-MS-Exchange-...-AuthAs: Internal header can be forged by outsiders, so it was ignored and the message was checked normally."
+  },
+  "reasonDockedInternalStamp": {
+    "message": "Checks pass for $1, but an \"internal message\" stamp was present on a message that was not delivered internally (possibly forged)."
+  },
+  "reasonMixedInternalStamp": {
+    "message": "No aligned authentication pass for $1, and an \"internal message\" stamp was present on a message that was not delivered internally."
   }
 }

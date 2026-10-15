@@ -1,4 +1,4 @@
-import { analyze, extractClaim } from "./lib.js";
+import { analyze, extractClaim, detectInternal } from "./lib.js";
 import { createDns } from "./dns.js";
 
 const t = (key, ...subs) => browser.i18n.getMessage(key, subs.map(String)) || key;
@@ -37,7 +37,7 @@ function sourceText(s) {
     return s.resolvers?.length ? t("srcOwnVia", s.resolvers.join(", ")) : t("srcOwn");
 }
 
-function renderClaim(c) {
+function renderClaim(c, internal = false) {
     const g = $("claim");
     const add = (label, node) => { g.appendChild(el("div", "k", label)); g.appendChild(node); };
     add(t("labelSubject"), cell(c.subject || t("notPresent")));
@@ -52,6 +52,7 @@ function renderClaim(c) {
     const h = c.handoff?.hop;
     add(t("labelHandoff"), h
         ? cell(`${h.helo || "?"} [${h.ip || "?"}]`, [
+            internal && { text: t("internalHopNote") },
             { text: t("heloLine", h.helo || "?") },
             { text: t("ipLine", h.ip || "?") },
             { text: t("rdnsInHeader", h.rdns || "—") },
@@ -62,7 +63,7 @@ function renderClaim(c) {
 
 function confirmRow(label, result, main, extras, source) {
     const row = el("div", "row");
-    row.appendChild(el("span", "badge " + badgeClass(result), (result || "none").toUpperCase()));
+    row.appendChild(el("span", "badge " + badgeClass(result), result === "na" ? t("badgeNA") : (result || "none").toUpperCase()));
     row.appendChild(el("span", "k", label));
     row.appendChild(cell(main, source.type === "none" ? extras : [...extras, { text: sourceText(source), cls: "src" }]));
     $("confirm").appendChild(row);
@@ -70,6 +71,16 @@ function confirmRow(label, result, main, extras, source) {
 
 function renderConfirm(c) {
     const { spf, dkim, dmarc, rdns } = c;
+    if (c.internal) {
+        for (const label of [t("labelSPF"), t("labelDKIM"), t("labelDMARC"), t("labelRDNS")])
+            confirmRow(label, "na", t("naInternal"), [{ text: t("naInternalNote") }], { type: "none" });
+        return;
+    }
+    if (c.internalStampWarning) {
+        const w = c.internalStampWarning;
+        confirmRow(t("labelARWarn"), "warn", w.reason === "ar" ? t("internalStampWarnAr", w.authserv || "?") : t("internalStampWarnPath"),
+            [{ text: t("internalStampWarnDetail") }], { type: "none" });
+    }
     const spfMain = spf.source.type === "ar"
         ? t("spfAR", spf.domain || "?")
         : (spf.ip ? t("spfOwn", spf.ip, spf.domain || "?") : t("noHandoff"));
@@ -103,7 +114,7 @@ function renderVerdict(v) {
     const box = $("verdict");
     box.className = "verdict " + v.level;
     box.textContent = "";
-    const icon = { authentic: "✔ ", suspicious: "⚠ ", spoofed: "✖ " }[v.level];
+    const icon = { authentic: "✔ ", suspicious: "⚠ ", spoofed: "✖ ", internal: "ℹ " }[v.level];
     box.appendChild(el("b", null, icon + t("verdict_" + v.level)));
     box.appendChild(el("span", null, t(v.key, ...v.subs)));
 }
@@ -144,7 +155,7 @@ async function main() {
         const full = await messenger.messages.getFull(message.id);
         const headers = full.headers || {};
         const claim = extractClaim(headers);
-        renderClaim(claim);
+        renderClaim(claim, detectInternal(headers).state === "internal");
         renderPath(claim);
         const result = await analyze(headers, createDns());
         renderConfirm(result.confirm);
