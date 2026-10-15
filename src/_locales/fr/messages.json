@@ -3,66 +3,171 @@
     "message": "ReceivedHeaderInspector"
   },
   "extDescription": {
-    "message": "ReceivedHeaderInspector vous permet de lire les serveurs d'envoi et de vérifier les domaines afin de prévenir l'usurpation d'identité dans vos e-mails. Il est recommandé d'avoir quelques notions de base sur le fonctionnement des e-mails et des en-têtes de message pour tirer pleinement parti de cet outil."
+    "message": "Affiche l'expéditeur annoncé d'un e-mail, vérifie ces informations (SPF, DKIM, DMARC, DNS inverse) et donne un verdict, pour aider à détecter l'usurpation d'identité."
   },
   "actionTitle": {
-    "message": "Details"
+    "message": "Détails"
+  },
+  "sectionClaim": {
+    "message": "Annoncé"
+  },
+  "sectionConfirm": {
+    "message": "Vérification"
+  },
+  "sectionVerdict": {
+    "message": "Verdict"
   },
   "labelSubject": {
-    "message": "Subject:"
+    "message": "Sujet :"
   },
   "labelFrom": {
-    "message": "From:"
+    "message": "De :"
   },
-  "labelServer": {
-    "message": "Serveur:"
+  "labelReturnPath": {
+    "message": "Return-Path :"
   },
-  "labelIp": {
-    "message": "Ip:"
+  "labelDkimD": {
+    "message": "DKIM d= :"
+  },
+  "labelHandoff": {
+    "message": "Serveur remettant :"
   },
   "labelSender": {
-    "message": "Sender:"
+    "message": "Sender :"
   },
-  "labelGoogleLookup": {
-    "message": "Analyse google ➔"
+  "labelSPF": {
+    "message": "SPF"
   },
-  "labelReverseIp": {
-    "message": "Reverser IP :"
+  "labelDKIM": {
+    "message": "DKIM"
   },
-  "labelSpfServer": {
-    "message": "Spf serveur :"
+  "labelDMARC": {
+    "message": "DMARC"
   },
-  "labelSpfEmail": {
-    "message": "Spf email :"
+  "labelRDNS": {
+    "message": "DNS inverse"
   },
-  "labelReminder": {
-    "message": "⚠ Rappel"
+  "fromDomain": {
+    "message": "Domaine From : $1"
   },
-  "reminderIp": {
-    "message": "IP"
+  "envelopeDomain": {
+    "message": "Domaine d'enveloppe : $1"
   },
-  "reminderPart2": {
-    "message": "Les autres champs doivent être interprétés avec précaution, car ils peuvent être intentionnellement modifiés pour vous tromper (spoofing)."
+  "notPresent": {
+    "message": "(absent)"
   },
-  "subjectUnavailable": {
-    "message": "Sujet indisponible"
+  "dkimNone": {
+    "message": "Aucune signature DKIM"
   },
-  "authorUnavailable": {
-    "message": "Auteur indisponible"
+  "heloLine": {
+    "message": "HELO : $1"
   },
-  "errorSubject": {
-    "message": "Erreur : Impossible de récupérer le sujet"
+  "ipLine": {
+    "message": "IP : $1"
   },
-  "errorFrom": {
-    "message": "Erreur : Impossible de récupérer l'expéditeur"
+  "rdnsInHeader": {
+    "message": "rDNS (selon l'en-tête) : $1"
   },
-  "errorServer": {
-    "message": "Erreur : Impossible de récupérer le serveur"
+  "byLine": {
+    "message": "Reçu par : $1"
   },
-  "reminderPrefix": {
-    "message": "L'"
+  "noHandoff": {
+    "message": "Aucun serveur externe trouvé"
   },
-  "reminderSuffix": {
-    "message": " est la seule information difficile à falsifier."
+  "srcAR": {
+    "message": "d'après Authentication-Results de $1"
+  },
+  "srcOwn": {
+    "message": "vérification DNS locale"
+  },
+  "arIgnored": {
+    "message": "$1 en-tête(s) Authentication-Results non fiable(s) ignoré(s)"
+  },
+  "spfAR": {
+    "message": "Domaine smtp.mailfrom : $1"
+  },
+  "spfOwn": {
+    "message": "IP $1 vérifiée avec le SPF de $2"
+  },
+  "spfMatched": {
+    "message": "Correspondance : $1"
+  },
+  "dkimNotVerified": {
+    "message": "Signature présente, non vérifiée localement"
+  },
+  "dmarcAR": {
+    "message": "header.from=$1 · p=$2"
+  },
+  "dmarcNoRecord": {
+    "message": "Aucun enregistrement DMARC pour $1"
+  },
+  "dmarcOwnPass": {
+    "message": "SPF aligné avec $1 · p=$2"
+  },
+  "dmarcOwnNeutral": {
+    "message": "SPF non aligné ; DKIM non vérifié localement · p=$1"
+  },
+  "dmarcOwnFail": {
+    "message": "Ni SPF aligné valide ni signature DKIM alignée · p=$1"
+  },
+  "orgNote": {
+    "message": "L'alignement souple approxime le domaine organisationnel par ses deux derniers niveaux."
+  },
+  "rdnsMatch": {
+    "message": "PTR $1 → $2 (= HELO), confirmé"
+  },
+  "rdnsMismatch": {
+    "message": "PTR $1 → $2 (≠ HELO $3), confirmé"
+  },
+  "rdnsNotConfirmed": {
+    "message": "PTR $1 → $2, non confirmé"
+  },
+  "rdnsNone": {
+    "message": "Aucun enregistrement PTR pour $1"
+  },
+  "dnsError": {
+    "message": "Échec de la requête DNS"
+  },
+  "verdict_authentic": {
+    "message": "Probablement authentique"
+  },
+  "verdict_suspicious": {
+    "message": "Suspect"
+  },
+  "verdict_spoofed": {
+    "message": "Probablement usurpé"
+  },
+  "reasonDmarcPass": {
+    "message": "DMARC valide pour $1."
+  },
+  "reasonDmarcFail": {
+    "message": "DMARC en échec pour $1."
+  },
+  "reasonAlignedSpf": {
+    "message": "SPF valide et aligné avec $1."
+  },
+  "reasonAlignedDkim": {
+    "message": "DKIM valide et aligné avec $1."
+  },
+  "reasonSpfFail": {
+    "message": "SPF en échec et aucun DKIM aligné valide pour $1."
+  },
+  "reasonMixed": {
+    "message": "Aucune authentification alignée valide pour $1 ; prudence."
+  },
+  "checking": {
+    "message": "Vérification…"
+  },
+  "deliveryPath": {
+    "message": "Chemin de livraison ($1 sauts)"
+  },
+  "handoffTag": {
+    "message": "remise"
+  },
+  "footnote": {
+    "message": "⚠ Seule l'IP de remise est enregistrée par votre propre serveur ; les sauts précédents peuvent être falsifiés."
+  },
+  "errorGeneric": {
+    "message": "Erreur : $1"
   }
 }

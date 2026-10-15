@@ -1,3 +1,8 @@
+### Version 1.6.1 (English fork)
+- Redesigned popup: Claim (From, Return-Path, DKIM d=, handoff server, Sender), Confirm (SPF, DKIM, DMARC, reverse DNS with pass/fail badges and source), Verdict, collapsible delivery path.
+- Uses trusted Authentication-Results when present; otherwise own DNS-over-HTTPS checks (SPF evaluation, DMARC alignment). Reverse DNS is always checked locally.
+- IPv6 support in Received parsing. Removed raw SPF/TXT record dump. Resolver URL configurable in dns.js (Google or Cloudflare).
+
 ### Version 1.6.0 (English fork)
 - English-first fork: UI localized via WebExtension i18n (English default, French kept); comments translated; new name and ID. No functional changes.
 

@@ -1,47 +1,25 @@
 <!DOCTYPE html>
 <html>
-
 <head>
     <meta charset="utf-8">
     <title>Details</title>
     <link rel="stylesheet" type="text/css" media="screen" href="popup.css">
 </head>
-
 <body>
-    <div class="grid-container">
-        <div class="header" data-i18n="labelSubject">Subject:</div>
-        <div id="subject" class="content"></div>
-        <div class="header" data-i18n="labelFrom">From:</div>
-        <div id="from" class="content"></div>
-        <div class="header" data-i18n="labelServer">Server:</div>
-        <div id="hostname" class="content"></div>
-        <div class="header" data-i18n="labelIp">IP:</div>
-        <div id="ip" class="content"></div>
-        <div class="header" data-i18n="labelSender">Sender:</div>
-        <div id="sender" class="content"></div>
+<div class="panel" id="panel">
+    <h2 data-i18n="sectionClaim">Claim</h2>
+    <div class="grid" id="claim"></div>
 
-        <div class="header text-blue" data-i18n="labelGoogleLookup">Google DNS lookup &#10132;</div>
-        <div id="qequoi1" class="content"></div>
+    <h2 data-i18n="sectionConfirm">Confirm</h2>
+    <div id="confirm"></div>
+    <div class="src" id="arnote"></div>
 
-        <div class="header text-blue" data-i18n="labelReverseIp">Resolved IP(s):</div>
-        <div id="apireverseip" class="content"></div>
+    <h2 data-i18n="sectionVerdict">Verdict</h2>
+    <div id="verdict" class="verdict pending"><b data-i18n="checking">Checking…</b></div>
 
-        <div class="header text-blue" data-i18n="labelSpfServer">Server SPF:</div>
-        <div id="apispfserveur" class="content"></div>
-
-        <div class="header text-blue" data-i18n="labelGoogleLookup">Google DNS lookup &#10132;</div>
-        <div id="qequoi2" class="content"></div>
-
-        <div class="header text-blue" data-i18n="labelSpfEmail">Sender domain SPF:</div>
-        <div id="apispfemail" class="content"></div>
-
-        <div class="header text-green" data-i18n="labelReminder">&#9888; Reminder</div>
-        <div id="rappel" class="content">
-            <span data-i18n="reminderPrefix"></span><b data-i18n="reminderIp">IP</b><span data-i18n="reminderSuffix"> is the only piece of information that is hard to forge.</span><br/>
-            <span data-i18n="reminderPart2">Other fields should be interpreted with caution, as they can be deliberately altered to deceive you (spoofing).</span>
-        </div>
-    </div>
-    <script type="module" src="popup.js"></script>
+    <details id="path"><summary id="pathTitle"></summary><ol class="mono" id="hops"></ol></details>
+    <div class="note" data-i18n="footnote"></div>
+</div>
+<script type="module" src="popup.js"></script>
 </body>
-
 </html>

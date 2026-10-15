@@ -3,10 +3,19 @@
     "message": "Received Header Inspector (EN)"
   },
   "extDescription": {
-    "message": "Received Header Inspector lets you read the sending servers and check domains to help detect spoofing in your email. Some basic knowledge of how email and message headers work is recommended to get the most out of this tool."
+    "message": "Shows who an email claims to be from, checks those claims (SPF, DKIM, DMARC, reverse DNS) and gives a verdict, to help detect spoofing."
   },
   "actionTitle": {
     "message": "Details"
+  },
+  "sectionClaim": {
+    "message": "Claim"
+  },
+  "sectionConfirm": {
+    "message": "Confirm"
+  },
+  "sectionVerdict": {
+    "message": "Verdict"
   },
   "labelSubject": {
     "message": "Subject:"
@@ -14,55 +23,151 @@
   "labelFrom": {
     "message": "From:"
   },
-  "labelServer": {
-    "message": "Server:"
+  "labelReturnPath": {
+    "message": "Return-Path:"
   },
-  "labelIp": {
-    "message": "IP:"
+  "labelDkimD": {
+    "message": "DKIM d=:"
+  },
+  "labelHandoff": {
+    "message": "Handoff server:"
   },
   "labelSender": {
     "message": "Sender:"
   },
-  "labelGoogleLookup": {
-    "message": "Google DNS lookup ➔"
+  "labelSPF": {
+    "message": "SPF"
   },
-  "labelReverseIp": {
-    "message": "Resolved IP(s):"
+  "labelDKIM": {
+    "message": "DKIM"
   },
-  "labelSpfServer": {
-    "message": "Server SPF:"
+  "labelDMARC": {
+    "message": "DMARC"
   },
-  "labelSpfEmail": {
-    "message": "Sender domain SPF:"
+  "labelRDNS": {
+    "message": "Reverse DNS"
   },
-  "labelReminder": {
-    "message": "⚠ Reminder"
+  "fromDomain": {
+    "message": "From domain: $1"
   },
-  "reminderIp": {
-    "message": "IP"
+  "envelopeDomain": {
+    "message": "Envelope domain: $1"
   },
-  "reminderPart2": {
-    "message": "Other fields should be interpreted with caution, as they can be deliberately altered to deceive you (spoofing)."
+  "notPresent": {
+    "message": "(not present)"
   },
-  "subjectUnavailable": {
-    "message": "Subject unavailable"
+  "dkimNone": {
+    "message": "No DKIM signature"
   },
-  "authorUnavailable": {
-    "message": "Author unavailable"
+  "heloLine": {
+    "message": "HELO: $1"
   },
-  "errorSubject": {
-    "message": "Error: unable to retrieve the subject"
+  "ipLine": {
+    "message": "IP: $1"
   },
-  "errorFrom": {
-    "message": "Error: unable to retrieve the sender"
+  "rdnsInHeader": {
+    "message": "rDNS (per header): $1"
   },
-  "errorServer": {
-    "message": "Error: unable to retrieve the server"
+  "byLine": {
+    "message": "Received by: $1"
   },
-  "reminderPrefix": {
-    "message": ""
+  "noHandoff": {
+    "message": "No external handoff found"
   },
-  "reminderSuffix": {
-    "message": " is the only piece of information that is hard to forge."
+  "srcAR": {
+    "message": "from Authentication-Results by $1"
+  },
+  "srcOwn": {
+    "message": "own DNS check"
+  },
+  "arIgnored": {
+    "message": "$1 untrusted Authentication-Results header(s) ignored"
+  },
+  "spfAR": {
+    "message": "smtp.mailfrom domain: $1"
+  },
+  "spfOwn": {
+    "message": "IP $1 checked against SPF of $2"
+  },
+  "spfMatched": {
+    "message": "Matched: $1"
+  },
+  "dkimNotVerified": {
+    "message": "Signature present, not verified locally"
+  },
+  "dmarcAR": {
+    "message": "header.from=$1 · p=$2"
+  },
+  "dmarcNoRecord": {
+    "message": "No DMARC record for $1"
+  },
+  "dmarcOwnPass": {
+    "message": "SPF aligned with $1 · p=$2"
+  },
+  "dmarcOwnNeutral": {
+    "message": "SPF not aligned; DKIM not verified locally · p=$1"
+  },
+  "dmarcOwnFail": {
+    "message": "No aligned SPF pass and no aligned DKIM signature · p=$1"
+  },
+  "orgNote": {
+    "message": "Relaxed alignment approximates the organizational domain by its last two labels."
+  },
+  "rdnsMatch": {
+    "message": "PTR $1 → $2 (= HELO), forward-confirmed"
+  },
+  "rdnsMismatch": {
+    "message": "PTR $1 → $2 (≠ HELO $3), forward-confirmed"
+  },
+  "rdnsNotConfirmed": {
+    "message": "PTR $1 → $2, not forward-confirmed"
+  },
+  "rdnsNone": {
+    "message": "No PTR record for $1"
+  },
+  "dnsError": {
+    "message": "DNS lookup failed"
+  },
+  "verdict_authentic": {
+    "message": "Likely authentic"
+  },
+  "verdict_suspicious": {
+    "message": "Suspicious"
+  },
+  "verdict_spoofed": {
+    "message": "Likely spoofed"
+  },
+  "reasonDmarcPass": {
+    "message": "DMARC passes for $1."
+  },
+  "reasonDmarcFail": {
+    "message": "DMARC fails for $1."
+  },
+  "reasonAlignedSpf": {
+    "message": "SPF passes and aligns with $1."
+  },
+  "reasonAlignedDkim": {
+    "message": "DKIM passes and aligns with $1."
+  },
+  "reasonSpfFail": {
+    "message": "SPF fails and no aligned DKIM pass for $1."
+  },
+  "reasonMixed": {
+    "message": "No aligned authentication pass for $1; treat with caution."
+  },
+  "checking": {
+    "message": "Checking…"
+  },
+  "deliveryPath": {
+    "message": "Delivery path ($1 hops)"
+  },
+  "handoffTag": {
+    "message": "handoff"
+  },
+  "footnote": {
+    "message": "⚠ Only the handoff IP is recorded by your own server; earlier hops can be forged."
+  },
+  "errorGeneric": {
+    "message": "Error: $1"
   }
 }
