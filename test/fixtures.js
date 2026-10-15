@@ -53,3 +53,9 @@ export const forgedARHeaders = {
         "relay2.home.example.net; dkim=pass header.d=example.com"
     ]
 };
+
+// Clean sample: only the trusted Authentication-Results header (used for documentation screenshots).
+export const cleanHeaders = {
+    ...authenticHeaders,
+    "authentication-results": [authenticHeaders["authentication-results"][0]]
+};

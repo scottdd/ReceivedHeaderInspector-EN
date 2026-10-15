@@ -2,27 +2,79 @@
 
 English-first fork of the Thunderbird add-on **ReceivedHeaderInspector** by **Olivier Poujade (Olivier P.)**.
 Original project: https://github.com/PoujadeOlivier/ReceivedHeaderInspector
-(listed on addons.thunderbird.net under the MIT/X11 license). All credit for the original design and code goes to the original author.
+(listed on addons.thunderbird.net under the MIT/X11 license). All credit for the original idea and the first versions goes to the original author.
 
-## What changed in this fork
-- English is the default UI language (WebExtension i18n, `default_locale: "en"`); the original French strings are kept in `_locales/fr`, so French-language Thunderbird still shows French.
-- Code comments and documentation translated to English.
-- New name and add-on ID (`receivedheaderinspector-en@dowlen.net`) so it can be installed alongside the original. Version 1.6.0.
-- No functional changes.
+Works in Thunderbird 128+ and Betterbird.
+
+## Download and install
+1. Download the latest `.xpi` from the [Releases page](https://github.com/scottdd/ReceivedHeaderInspector-EN/releases/latest).
+2. In Thunderbird/Betterbird open **Add-ons and Themes**, click the gear menu, choose **Install Add-on From File**, and pick the `.xpi`.
+3. Approve the permissions (reading the displayed message, and DNS-over-HTTPS access to the resolvers listed below).
+
+Installing a newer version over an older one updates it in place. The add-on ID is `receivedheaderinspector-en@dowlen.net`, so it can sit next to the original add-on.
 
 ## What it does
-Received Header Inspector helps you detect spoofing and phishing attempts. It parses the message's `Received` headers and shows the transit servers used to deliver the email, so you can check the sender's legitimacy and spot inconsistencies.
+Open a message and click the add-on's button in the message toolbar. The popup answers one question: *is this message really from who it says it is?* It is organized into three sections:
 
-It uses the public Google DNS API (`https://dns.google/resolve`) to check the sending server and the sender's email domain, e.g. resolving the domain's IP address and fetching SPF (TXT) records.
+- **Claim** shows what the message claims: Subject, From (name, address, domain), Return-Path domain, DKIM signing domain(s) (`d=`), the handoff server (HELO name and IP of the server that delivered the message to your mail server) and the Sender/X-Sender header.
+- **Confirm** gives a pass/fail badge for each claim: SPF, DKIM, DMARC (including alignment with the From domain and the published policy) and reverse DNS of the handoff IP, forward-confirmed against the HELO name. Each row says where the result came from.
+- **Verdict** sums it up as **Likely authentic**, **Suspicious** or **Likely spoofed**, with a one-line reason.
 
-## Build
+Claim and Confirm rows start collapsed to one line and expand when clicked. A collapsible **Delivery path** lists every hop from the `Received` headers.
+
+### Screenshots (example data)
+A message that checks out, with Handoff server and Reverse DNS rows expanded:
+
+![Likely authentic, rows expanded](docs/img/authentic-expanded.png)
+
+The same message with everything collapsed (the default view):
+
+![Likely authentic, collapsed](docs/img/authentic.png)
+
+A spoofed message with no `Authentication-Results`, checked with the add-on's own DNS lookups:
+
+![Likely spoofed](docs/img/spoofed.png)
+
+A message carrying an untrusted, possibly forged `Authentication-Results` header:
+
+![Untrusted Authentication-Results warning](docs/img/forged-auth-results.png)
+
+### How results are decided
+- **Authentication-Results first.** The add-on trusts the topmost `Authentication-Results` header, or one whose server name matches the server in the topmost `Received` header, because your own mail server saw the real connection. Results are shown as "from Authentication-Results by <server>".
+- **Own checks as fallback.** If a result is missing, the add-on does its own DNS checks (SPF evaluation, DMARC record and alignment, reverse DNS) and labels them "own DNS check via <resolver>". DKIM signatures are not verified locally in this case and show as neutral.
+- **Forged-header warning.** An extra `Authentication-Results` header from a different organization than your mail server is flagged with an amber warning and lowers a "Likely authentic" verdict to "Suspicious".
+
+### DNS lookups
+Own checks use DNS over HTTPS with the JSON API, trying these resolvers in order and falling back on timeout (3 s), network or HTTP errors, or SERVFAIL: Cloudflare, NextDNS, AdGuard (unfiltered), DNS.SB, Google. "Domain does not exist" is treated as a real answer. Lookups send the sender's domains and the handoff IP to the resolver that answers. If your mail server supplies a trusted `Authentication-Results` header, little or nothing needs to be looked up.
+
+## Languages
+English is the default UI language (WebExtension i18n); the original French strings are in `_locales/fr`. More languages are planned, see [TODO.md](TODO.md).
+
+## Versions
+- **1.6.2:** resolver fallback list, forged `Authentication-Results` warning with verdict downgrade.
+- **1.6.1:** new Claim / Confirm / Verdict panel, `Authentication-Results` parsing, own SPF/DMARC/reverse-DNS checks.
+- **1.6.0:** English-first fork (i18n, new name and ID).
+
+## Development
+Source is in `src/`. Tests need only Node and no network:
 ```
-cd src && zip -r ../dist/receivedheaderinspector-en-1.6.0-tb.xpi . -x '.*'   # or: python3 -m zipfile -c ...
+node test/run-tests.js
 ```
+Build the installable package (the manifest must be at the top level of the zip):
+```
+cd src && python3 -m zipfile -c ../dist/receivedheaderinspector-en-<version>-tb.xpi .
+```
+Documentation screenshots are rendered with `test/screenshot.py` (Playwright and Chrome, mocked mail data). Planned work is tracked in [TODO.md](TODO.md).
 
-## Examples (from the original project)
+## Known limitations
+- If your mail server does not add its own `Authentication-Results`, a forged one at the top of the message could be trusted.
+- No local DKIM signature verification in the fallback path.
+- The organizational-domain check is an approximation, not the full Public Suffix List.
+- SPF macros are not supported and `ptr` never matches.
+
+## Examples from the original project
 ![Example 01](Ressources/ExempleSpoofing01.jpg)
 ![Example 02](Ressources/ExempleSpoofing02.jpg)
 
 ## License
-MIT. See [LICENSE](LICENSE).
+MIT. See [LICENSE](LICENSE). Original work © Olivier Poujade; fork changes © Scott Dowlen.
