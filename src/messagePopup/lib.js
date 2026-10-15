@@ -383,7 +383,11 @@ function baseVerdict(fromDomain, c) {
     const dkimAlignedPass = c.dkim.items.some(x => x.result === "pass" && aligned(x.d, fromDomain));
     if (dkimAlignedPass) return { level: "authentic", key: "reasonAlignedDkim", subs: [fromDomain] };
     if (c.spf.result === "pass" && aligned(c.spf.domain, fromDomain)) return { level: "authentic", key: "reasonAlignedSpf", subs: [fromDomain] };
-    if (c.spf.result === "fail") return { level: "spoofed", key: "reasonSpfFail", subs: [fromDomain] };
+    if (c.spf.result === "fail") {
+        // An aligned DKIM signature we could not verify locally is not evidence of forgery: stay "suspicious".
+        if (c.dkimUnverifiedAligned) return { level: "suspicious", key: "reasonSpfFailDkimUnverified", subs: [fromDomain] };
+        return { level: "spoofed", key: "reasonSpfFail", subs: [fromDomain] };
+    }
     return { level: "suspicious", key: "reasonMixed", subs: [fromDomain] };
 }
 
@@ -439,7 +443,8 @@ export async function analyze(headers, dns) {
 
     const ro = own();
     const rdns = { ...(await checkRdns(hop?.ip, hop?.helo, ro.dns)), source: ro.source };
-    const confirm = { spf, dkim, dmarc, rdns, arIgnored: ar.ignored.length, arFlagged: ar.flagged,
+    const dkimUnverifiedAligned = !dkim.verified && claim.dkim.some(x => aligned(x.d, fromDomain));
+    const confirm = { spf, dkim, dmarc, rdns, dkimUnverifiedAligned, arIgnored: ar.ignored.length, arFlagged: ar.flagged,
         arTrustedBy: ar.trusted[0]?.authserv || "" };
     return { claim, confirm, verdict: verdict(fromDomain, confirm) };
 }

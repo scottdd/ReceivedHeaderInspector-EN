@@ -117,11 +117,11 @@ await test("analyze: no AR fallback → spoofed", async () => {
     assert.equal(r.confirm.dkim.result, "none"); assert.equal(r.confirm.dmarc.result, "fail");
     assert.equal(r.confirm.rdns.result, "fail"); assert.equal(r.verdict.level, "spoofed");
 });
-await test("analyze: no AR, unverified aligned DKIM → DMARC neutral, still spoofed by SPF fail", async () => {
+await test("analyze: no AR, unverified aligned DKIM → DMARC neutral, suspicious (not spoofed)", async () => {
     const h = { ...spoofHeaders, "dkim-signature": ["v=1; d=example.com; s=s1; b=x"] };
     const r = await L.analyze(h, dns);
     assert.equal(r.confirm.dkim.result, "neutral"); assert.equal(r.confirm.dmarc.result, "neutral");
-    assert.equal(r.verdict.level, "spoofed"); // SPF hard fail, no aligned DKIM *pass*
+    assert.equal(r.verdict.level, "suspicious"); assert.equal(r.verdict.key, "reasonSpfFailDkimUnverified"); // SPF fail, aligned DKIM present but unverifiable
 });
 await test("analyze: own SPF pass aligned → authentic", async () => {
     const h = { ...spoofHeaders, received: ["from out-3.mail.example.com (smtp25.example.com [203.0.113.25]) by mx.home.example.net; Wed, 14 Oct 2026"] };
@@ -325,5 +325,14 @@ await test("Gmail shape: 'by <ipv6-ish>' hop without from is skipped; rdns with 
     assert.equal(r.confirm.dmarc.policy, "none"); assert.equal(r.verdict.level, "authentic");
 });
 
+await test("regression: SES-style mail (Return-Path on bounce domain) with aligned unverified DKIM is not called spoofed on SPF fail alone", async () => {
+    const h = { received: ["from a1.smtp-out.example.org (a1.smtp-out.example.org [198.51.100.20]) by mx.home.example.net; Thu, 15 Oct 2026 10:18:45 -0500"],
+        from: ["Sender <hello@example.com>"], "return-path": ["<bounce-1@bounce.example.org>"],
+        "dkim-signature": ["v=1; d=example.com; s=a; b=x", "v=1; d=example.org; s=b; b=y"] };
+    const r = await L.analyze(h, dns);
+    assert.equal(r.confirm.spf.result, "none"); assert.equal(r.confirm.dkimUnverifiedAligned, true);
+    assert.equal(L.verdict("example.com", { ...r.confirm, spf: { result: "fail" } }).level, "suspicious");
+    assert.equal(L.verdict("example.com", { ...r.confirm, spf: { result: "fail" }, dkimUnverifiedAligned: false }).level, "spoofed");
+});
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

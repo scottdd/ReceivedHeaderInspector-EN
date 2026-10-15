@@ -187,5 +187,8 @@
   },
   "reasonMixedAR": {
     "message": "No aligned authentication pass for $1, and an untrusted Authentication-Results header is present."
+  },
+  "reasonSpfFailDkimUnverified": {
+    "message": "SPF fails, but an aligned DKIM signature for $1 is present and could not be verified locally."
   }
 }

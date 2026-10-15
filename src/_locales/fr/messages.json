@@ -187,5 +187,8 @@
   },
   "reasonMixedAR": {
     "message": "Aucune authentification alignée valide pour $1, et un en-tête Authentication-Results non fiable est présent."
+  },
+  "reasonSpfFailDkimUnverified": {
+    "message": "SPF en échec, mais une signature DKIM alignée pour $1 est présente et n'a pas pu être vérifiée localement."
   }
 }
