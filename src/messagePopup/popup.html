@@ -9,45 +9,37 @@
 
 <body>
     <div class="grid-container">
-        <div class="header">Subject:</div>
+        <div class="header" data-i18n="labelSubject">Subject:</div>
         <div id="subject" class="content"></div>
-        <div class="header">From:</div>
+        <div class="header" data-i18n="labelFrom">From:</div>
         <div id="from" class="content"></div>
-        <div class="header">Serveur:</div>
+        <div class="header" data-i18n="labelServer">Server:</div>
         <div id="hostname" class="content"></div>
-        <div class="header">Ip:</div>
+        <div class="header" data-i18n="labelIp">IP:</div>
         <div id="ip" class="content"></div>
-        <div class="header">Sender:</div>
+        <div class="header" data-i18n="labelSender">Sender:</div>
         <div id="sender" class="content"></div>
 
-        <div class="header text-blue" >Analyse google &#10132; </div>
+        <div class="header text-blue" data-i18n="labelGoogleLookup">Google DNS lookup &#10132;</div>
         <div id="qequoi1" class="content"></div>
 
-        <div class="header text-blue">Reverser IP : </div>
+        <div class="header text-blue" data-i18n="labelReverseIp">Resolved IP(s):</div>
         <div id="apireverseip" class="content"></div>
 
-        <div class="header text-blue">Spf serveur : </div>
+        <div class="header text-blue" data-i18n="labelSpfServer">Server SPF:</div>
         <div id="apispfserveur" class="content"></div>
-		
-        <div class="header text-blue">Analyse google &#10132; </div>
-        <div id="qequoi2" class="content"></div>		
 
-        <div class="header text-blue">Spf email : </div>
+        <div class="header text-blue" data-i18n="labelGoogleLookup">Google DNS lookup &#10132;</div>
+        <div id="qequoi2" class="content"></div>
+
+        <div class="header text-blue" data-i18n="labelSpfEmail">Sender domain SPF:</div>
         <div id="apispfemail" class="content"></div>
 
-
-
-        <div class="header text-green"> &#9888; Rappel </div>
+        <div class="header text-green" data-i18n="labelReminder">&#9888; Reminder</div>
         <div id="rappel" class="content">
-		
-			L'<b>IP</b> est la seule information difficile à falsifier. <br/>
-			Les autres champs doivent être interprétés avec précaution, car ils peuvent être intentionnellement modifiés pour vous tromper (spoofing).
-
-		</div>
-	
-
-
-
+            <span data-i18n="reminderPrefix"></span><b data-i18n="reminderIp">IP</b><span data-i18n="reminderSuffix"> is the only piece of information that is hard to forge.</span><br/>
+            <span data-i18n="reminderPart2">Other fields should be interpreted with caution, as they can be deliberately altered to deceive you (spoofing).</span>
+        </div>
     </div>
     <script type="module" src="popup.js"></script>
 </body>

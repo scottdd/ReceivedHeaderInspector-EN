@@ -1,48 +1,48 @@
 //#####################################
 //#####################################
-//####Fonctions pour interroger l'API GOOGLE https://dns.google/resolve?
+//#### Functions for querying the Google DNS API https://dns.google/resolve?
 
 
-// Fonction pour résoudre le domaine et obtenir les adresses IP associées
+// Resolve a domain and return its associated IP addresses
 async function resolveDomain(domain) {
-    const url = `https://dns.google/resolve?name=${domain}&type=A`; // Utilisation de Google DNS API pour récupérer l'IP
+    const url = `https://dns.google/resolve?name=${domain}&type=A`; // Use the Google DNS API to fetch the IP
     try {
         const response = await fetch(url);
         const data = await response.json();
         if (data.Answer) {
-            const ipAddresses = data.Answer.map(entry => entry.data); // Récupérer les adresses IP
+            const ipAddresses = data.Answer.map(entry => entry.data); // Extract the IP addresses
 			//console.log(ipAddresses);
             return ipAddresses;
         } else {
-            console.log("Aucune IP trouvée pour le domaine:", domain);
+            console.log("No IP found for domain:", domain);
             return null;
         }
     } catch (error) {
-        console.error("Erreur lors de la récupération des IP du domaine:", error);
+        console.error("Error while fetching IPs for domain:", error);
         return null;
     }
 }
 
-// Fonction pour récupérer l'enregistrement SPF du domaine
+// Fetch the SPF record of a domain
 async function getSPFRecord(domain) {
-    const url = `https://dns.google/resolve?name=${domain}&type=TXT`; // Requête pour récupérer les enregistrements TXT (SPF)
+    const url = `https://dns.google/resolve?name=${domain}&type=TXT`; // Query TXT records (SPF)
     try {
         const response = await fetch(url);
         const data = await response.json();
         if (data.Authority) {
-			const spfRecords = data.Authority.map(entry => entry.data); // Récupérer les enregistrements SPF, cas réponse Authority
+			const spfRecords = data.Authority.map(entry => entry.data); // Extract SPF records (Authority response case)
 			//console.log(spfRecords);
             return spfRecords;
         } else if (data.Answer) {
-			const spfRecords = data.Answer.map(entry => entry.data); // Récupérer les enregistrements SPF, cas réponse Answer
+			const spfRecords = data.Answer.map(entry => entry.data); // Extract SPF records (Answer response case)
 			//console.log(spfRecords);
             return spfRecords;
         } else {
-            console.log("Aucun enregistrement SPF trouvé pour ce domaine.");
+            console.log("No SPF record found for this domain.");
             return null;
         }
     } catch (error) {
-        console.error("Erreur lors de la récupération de l'enregistrement SPF:", error);
+        console.error("Error while fetching SPF record:", error);
         return null;
     }
 }
@@ -56,20 +56,20 @@ async function getSPFRecord(domain) {
 
 
 
-//Vous devez utiliser async dans une fonction si cette fonction 
-//utilise des opérations asynchrones (comme fetch(), setTimeout(), ou Promise). 
+// A function must be declared async if it
+// uses asynchronous operations (such as fetch(), setTimeout(), or Promise).
 
 // From: "test.detection@hotmail.com" <sender@e9mail.com>
 function extractEmail(fromHeader) {
     let email = null;
 
-    // Vérifie si l'adresse e-mail est encadrée par < >
+    // Check whether the email address is enclosed in < >
     const match = fromHeader.match(/<([^>]+)>/);
     if (match) {
-        // Récupère l'adresse e-mail entre les chevrons
+        // Take the email address between the angle brackets
         email = match[1];
     } else {
-        // Pas de chevrons, cherche une adresse e-mail simple
+        // No angle brackets: look for a plain email address
         const simpleMatch = fromHeader.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
         if (simpleMatch) {
             email = simpleMatch[0];
@@ -87,12 +87,12 @@ function extractEmail(fromHeader) {
 async function analyzeEmailHeaders() {
     try {
 		
-		//le dernier serveur est le serveur de distribution
-		//donc notre serveur de mail
-		//ça ne m'intéresse pas de le tracer
-		let PremierPassage = 'Oui';
+		// The last server is the delivery server,
+		// i.e. our own mail server,
+		// so there is no point tracing it
+		let firstPass = true;
 		
-        // Obtenir le message affiché dans l'onglet actuel
+        // Get the message displayed in the current tab
 		// The user clicked our button, get the active tab in the current window using
 		// the tabs API.
         let tabs = await messenger.tabs.query({ active: true, currentWindow: true });
@@ -103,54 +103,54 @@ async function analyzeEmailHeaders() {
         let message = await messenger.messageDisplay.getDisplayedMessage(tabs[0].id);
 
         if (!message) {
-            console.error("Aucun message affiché.");
+            console.error("No message displayed.");
             return;
         }
 		
 		
-		// Mettre à jour les champs HTML avec le sujet et l'auteur du message
-        document.getElementById("subject").textContent = message.subject || "Sujet indisponible";
-        document.getElementById("from").textContent = message.author || "Auteur indisponible";
+		// Fill in the HTML fields with the message subject and author
+        document.getElementById("subject").textContent = message.subject || browser.i18n.getMessage("subjectUnavailable");
+        document.getElementById("from").textContent = message.author || browser.i18n.getMessage("authorUnavailable");
 		
 
 
 
 	
-        // Obtenir le contenu complet du message
+        // Get the full message content
         let full = await messenger.messages.getFull(message.id);
 
 		let sender = '';
 		
-		// Normalisation de la casse de l'en-tête "sender"
+		// Handle case variants of the "sender" header
 		const senderHeaders = [
 			'sender', 
 			'X-sender', 
 			'Sender'
 		];
 		
-		// On vérifie chaque clé de l'en-tête, en ignorant la casse
+		// Check each header key variant
 		for (let header of senderHeaders) {
 			if (full.headers[header]) {
 				sender = full.headers[header];
-				break; // Si on trouve, on s'arrête ici
+				break; // Stop at the first match
 			}
 		}
 		
-		// Si c'est un tableau, on prend le premier élément
+		// If it is an array, take the first element
 		if (Array.isArray(sender)) {
 			sender = sender[0];
 		}
-		//si ce n'est pas un tableau, 1 occurence, sender = sender  , donc rien à faire
+		// Otherwise it is a single occurrence; nothing to do
 		
 		document.getElementById("sender").textContent = sender || "";
 		
 		
 
 
-        // Extraire les en-têtes "Received" complets
+        // Get the full "Received" headers
         let receivedHeader = full.headers["received"];
 
-        // Préparer un tableau pour stocker les résultats
+        // Prepare containers for the results
         let extractedServers = [];
 		extractedServers['Ip'] = [];
 		extractedServers['Hostname'] = [];
@@ -158,16 +158,16 @@ async function analyzeEmailHeaders() {
 
 		let ipRegex = /\b(?:\d{1,3}\.){3}\d{1,3}\b/g;
 
-		let hostnameRegex = /\b(?=[^\s]*[a-zA-Z])[^\s=+]+(?:\.[^\s=+]+)+\b/g;      //1 point minimum , prend tous les caractères sauf les espaces (même les spéciaux) sans = ni +
+		let hostnameRegex = /\b(?=[^\s]*[a-zA-Z])[^\s=+]+(?:\.[^\s=+]+)+\b/g;      // At least one dot; any non-space characters (including special ones) except = and +
 		
-        // Appliquer l'expression régulière sur chaque ligne "Received"
+        // Apply the regexes to each "Received" line
         if (Array.isArray(receivedHeader)) {
 
             for (let line of receivedHeader) {
 
 
-				// il faut réinitialiser l'expression régulière avec le drapeau global g en définissant sa propriété lastIndex à zéro avant de l'utiliser à nouveau. 
-				// Cela garantit que l'exécution de exec commence toujours au début de la chaîne.
+				// Global (g) regexes must have lastIndex reset to zero before reuse.
+				// This ensures exec always starts at the beginning of the string.
 				hostnameRegex.lastIndex = 0;
 				ipRegex.lastIndex = 0;
 
@@ -181,10 +181,10 @@ async function analyzeEmailHeaders() {
 				ip = ip['0'];
 
 		if ( hostname ) {
-			if(PremierPassage != 'Oui')
+			if(!firstPass)
 			extractedServers['Hostname'].push(hostname);
 			
-			PremierPassage = 'Non';
+			firstPass = false;
 		}
 		
 		if (ip) {
@@ -213,10 +213,10 @@ async function analyzeEmailHeaders() {
 				ip = ip['0'];
 
 		if ( hostname ) {
-			if(PremierPassage != 'Oui')
+			if(!firstPass)
 			extractedServers['Hostname'].push(hostname);
 			
-			PremierPassage = 'Non';
+			firstPass = false;
 		}
 		
 		if (ip) {
@@ -228,12 +228,12 @@ async function analyzeEmailHeaders() {
 
 
 
-		//Inverser les tableaux de resultat
+		// Reverse the result arrays
 		//extractedServers['Hostname'] = extractedServers['Hostname'].reverse();		
 		//extractedServers['Ip'] = extractedServers['Ip'].reverse();		
 		
 		
-		//Alerte sécurité sur l'utilisation de innerHTML par le dépôt Thunderbird
+		// Thunderbird add-on review flags innerHTML as a security issue
 		//document.getElementById("hostname").innerHTML  = extractedServers['Hostname'];
         //document.getElementById("ip").innerHTML  = extractedServers['Ip'];
 		
@@ -241,13 +241,13 @@ async function analyzeEmailHeaders() {
 		let container = document.getElementById('hostname');
 		
 	
-		// Boucle sur chaque mot et crée un paragraphe pour chaque mot
+		// Loop over each entry and create an element for it
 		extractedServers['Hostname'].forEach(mot => {
-			const span = document.createElement('span');  // Utiliser <span> au lieu de <p>
-			span.textContent = mot;  // Ajoute le mot à l'élément <span>
-			container.appendChild(span);  // Ajoute le <span> à l'élément container
+			const span = document.createElement('span');  // Use <span> instead of <p>
+			span.textContent = mot;  // Put the text in the <span>
+			container.appendChild(span);  // Append the <span> to the container
 		
-			// Ajouter un retour à la ligne en utilisant une balise <br>
+			// Add a line break with a <br>
 			container.appendChild(document.createElement('br'));
 		});	
 
@@ -255,13 +255,13 @@ async function analyzeEmailHeaders() {
 
 		container = document.getElementById('ip');
 	
-		// Boucle sur chaque mot et crée un paragraphe pour chaque mot
+		// Loop over each entry and create an element for it
 		extractedServers['Ip'].forEach(mot => {
-			const span = document.createElement('span');  // Utiliser <span> au lieu de <p>
-			span.textContent = mot;  // Ajoute le mot à l'élément <span>
-			container.appendChild(span);  // Ajoute le <span> à l'élément container
+			const span = document.createElement('span');  // Use <span> instead of <p>
+			span.textContent = mot;  // Put the text in the <span>
+			container.appendChild(span);  // Append the <span> to the container
 		
-			// Ajouter un retour à la ligne en utilisant une balise <br>
+			// Add a line break with a <br>
 			container.appendChild(document.createElement('br'));
 		});	
 
@@ -286,79 +286,79 @@ container.appendChild(span01);
  
 resolveDomain(extractedServers['Hostname']['0']).then(ips => {
     if (ips) {
-        // Tu peux maintenant utiliser les résultats dans `ips`
+        // Results are now available in `ips`
         //console.log(ips);
 		
 		container = document.getElementById('apireverseip');
 		const span02 = document.createElement('span');
 		span02.textContent = ips.join(", ");
 		container.appendChild(span02);
-		//container.appendChild(document.createElement('br')); // Ajoute une ligne vide		
+		//container.appendChild(document.createElement('br')); // Add an empty line		
 
 		
     } else {
-        console.log("Aucune IP trouvée pour le domaine.");
+        console.log("No IP found for the domain.");
     }
 });
 
 getSPFRecord(extractedServers['Hostname']['0']).then(spfRecords => {
     if (spfRecords) {
-        // Tu peux maintenant utiliser les résultats dans `spfRecords`
+        // Results are now available in `spfRecords`
         //console.log(spfRecords);
 		
 		container = document.getElementById('apispfserveur');
-		const span03 = document.createElement('span'); // Crée un élément <span>
+		const span03 = document.createElement('span'); // Create a <span>
 		span03.textContent = spfRecords.join(", ");
 		container.appendChild(span03);
-		//container.appendChild(document.createElement('br')); // Ajoute une ligne vide		
+		//container.appendChild(document.createElement('br')); // Add an empty line		
 		
     } else {
-        console.log("Aucune IP SPF trouvée pour le domaine.");
+        console.log("No SPF record found for the domain.");
     }
 });
 
 
-    // Utiliser une expression régulière pour extraire le domaine de l'email
+    // Use a regex to extract the domain from the email address
 	
-	//déjà je récupère l'email de la ligne From : message.author
-	//exemple de FROM : From: "test.detection@hotmail.com" <sender@e9mail.com>
+	// First get the email address from the From line (message.author)
+	// Example From: From: "test.detection@hotmail.com" <sender@e9mail.com>
 	const email = extractEmail(message.author);
 	//console.log('email:', email);
     const regex = /@([a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/;
     //const match = message.author.match(regex);
-    const domaine = email.match(regex);
-	//console.log('domaine:', domaine[1]);
+    const domain = email.match(regex);
+	//console.log('domain:', domain[1]);
 	
-	//je traite la requete spf, seulement si le domaine du mail est différent du domaine du serveur d'envoi, déjà traité
-    if (domaine && domaine[1] && domaine[1]!=extractedServers['Hostname']['0'] ) {
-        // Le domaine est le premier groupe capturé par la regex
-        //console.log('Domaine extrait:', domaine[1]);
+	// Run the SPF query only if the email domain differs from the sending server domain (already handled)
+    if (domain && domain[1] && domain[1]!=extractedServers['Hostname']['0'] ) {
+        // The domain is the regex's first capture group
+        //console.log('Extracted domain:', domain[1]);
 
 		container = document.getElementById('qequoi2');
-		const span04 = document.createElement('span'); // Crée un élément <span>
-		span04.textContent = domaine[1];
+		const span04 = document.createElement('span'); // Create a <span>
+		span04.textContent = domain[1];
 		span04.style.color = "blue";
 		span04.style.fontWeight = "bold";
-		container.appendChild(span04); // Ajoute le premier texte
-		//container.appendChild(document.createElement('br')); // Ajoute une ligne vide
+		container.appendChild(span04); // Append the text
+		//container.appendChild(document.createElement('br')); // Add an empty line
 
 
-		//ensuite je lance la requete spf
-		getSPFRecord(domaine[1]).then(spfRecords => {
+		// Then run the SPF query
+		getSPFRecord(domain[1]).then(spfRecords => {
 			if (spfRecords) {
-				// Tu peux maintenant utiliser les résultats dans `ips`
+				// Results are now available in `ips`
 				//console.log(spfRecords);
 				//console.log(spfRecords.join(", "));
 				
 				container = document.getElementById('apispfemail');
-				const span05 = document.createElement('span'); // Crée un élément <span>
-				// Convertir l'array `spfRecords` en chaîne de texte, chaque entrée séparée par une virgule
+				const span05 = document.createElement('span'); // Create a <span>
+				// Join `spfRecords` into a comma-separated string
 				span05.textContent = spfRecords.join(", ");
-				container.appendChild(span05); // Ajoute le premier texte
-				//container.appendChild(document.createElement('br')); // Ajoute une ligne vide			
+				container.appendChild(span05); // Append the text
+				//container.appendChild(document.createElement('br')); // Add an empty line			
 				
 			} else {
-				console.log("Aucune IP SPF trouvée pour le domaine.");
+				console.log("No SPF record found for the domain.");
 			}
 		});
 
@@ -377,14 +377,27 @@ getSPFRecord(extractedServers['Hostname']['0']).then(spfRecords => {
 
 
     } catch (error) {
-        console.error("Une erreur s'est produite lors du traitement de l'email :", error);
+        console.error("An error occurred while processing the email:", error);
 
-        // En cas d'erreur, afficher un message d'erreur dans les champs HTML
-        document.getElementById("subject").textContent = "Erreur : Impossible de récupérer le sujet";
-        document.getElementById("from").textContent = "Erreur : Impossible de récupérer l'expéditeur";
-        document.getElementById("received").textContent = "Erreur : Impossible de récupérer le serveur";
+        // On error, show an error message in the HTML fields
+        document.getElementById("subject").textContent = browser.i18n.getMessage("errorSubject");
+        document.getElementById("from").textContent = browser.i18n.getMessage("errorFrom");
+        document.getElementById("received").textContent = browser.i18n.getMessage("errorServer");
     }
 }
 
-// Appeler la fonction d'analyse
+// Localize static popup labels (elements with a data-i18n attribute)
+function localizePage() {
+    document.querySelectorAll("[data-i18n]").forEach(el => {
+        const msg = browser.i18n.getMessage(el.dataset.i18n);
+        if (msg || el.dataset.i18n === "reminderPrefix") {
+            el.textContent = msg;
+        }
+    });
+    document.title = browser.i18n.getMessage("actionTitle") || document.title;
+}
+
+localizePage();
+
+// Run the analysis
 analyzeEmailHeaders();

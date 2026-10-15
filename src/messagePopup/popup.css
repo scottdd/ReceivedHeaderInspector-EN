@@ -1,8 +1,8 @@
 .grid-container {
     display: grid;
     grid-template-columns: 1fr 6fr;
-	height: 400px; /* Hauteur explicite */
-	overflow-y: scroll; /* Barre de défilement toujours visible */
+	height: 400px; /* Explicit height */
+	overflow-y: scroll; /* Scrollbar always visible */
     
 	font-size: 13px;
 }
@@ -16,7 +16,7 @@
 }
 
 .text-blue {
-    color: blue; /* Applique la couleur bleue au texte */
+    color: blue; /* Blue text color */
 }
 
 .text-green {

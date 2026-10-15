@@ -1,0 +1,68 @@
+{
+  "extName": {
+    "message": "ReceivedHeaderInspector"
+  },
+  "extDescription": {
+    "message": "ReceivedHeaderInspector vous permet de lire les serveurs d'envoi et de vérifier les domaines afin de prévenir l'usurpation d'identité dans vos e-mails. Il est recommandé d'avoir quelques notions de base sur le fonctionnement des e-mails et des en-têtes de message pour tirer pleinement parti de cet outil."
+  },
+  "actionTitle": {
+    "message": "Details"
+  },
+  "labelSubject": {
+    "message": "Subject:"
+  },
+  "labelFrom": {
+    "message": "From:"
+  },
+  "labelServer": {
+    "message": "Serveur:"
+  },
+  "labelIp": {
+    "message": "Ip:"
+  },
+  "labelSender": {
+    "message": "Sender:"
+  },
+  "labelGoogleLookup": {
+    "message": "Analyse google ➔"
+  },
+  "labelReverseIp": {
+    "message": "Reverser IP :"
+  },
+  "labelSpfServer": {
+    "message": "Spf serveur :"
+  },
+  "labelSpfEmail": {
+    "message": "Spf email :"
+  },
+  "labelReminder": {
+    "message": "⚠ Rappel"
+  },
+  "reminderIp": {
+    "message": "IP"
+  },
+  "reminderPart2": {
+    "message": "Les autres champs doivent être interprétés avec précaution, car ils peuvent être intentionnellement modifiés pour vous tromper (spoofing)."
+  },
+  "subjectUnavailable": {
+    "message": "Sujet indisponible"
+  },
+  "authorUnavailable": {
+    "message": "Auteur indisponible"
+  },
+  "errorSubject": {
+    "message": "Erreur : Impossible de récupérer le sujet"
+  },
+  "errorFrom": {
+    "message": "Erreur : Impossible de récupérer l'expéditeur"
+  },
+  "errorServer": {
+    "message": "Erreur : Impossible de récupérer le serveur"
+  },
+  "reminderPrefix": {
+    "message": "L'"
+  },
+  "reminderSuffix": {
+    "message": " est la seule information difficile à falsifier."
+  }
+}

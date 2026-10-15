@@ -1,0 +1,68 @@
+{
+  "extName": {
+    "message": "Received Header Inspector (EN)"
+  },
+  "extDescription": {
+    "message": "Received Header Inspector lets you read the sending servers and check domains to help detect spoofing in your email. Some basic knowledge of how email and message headers work is recommended to get the most out of this tool."
+  },
+  "actionTitle": {
+    "message": "Details"
+  },
+  "labelSubject": {
+    "message": "Subject:"
+  },
+  "labelFrom": {
+    "message": "From:"
+  },
+  "labelServer": {
+    "message": "Server:"
+  },
+  "labelIp": {
+    "message": "IP:"
+  },
+  "labelSender": {
+    "message": "Sender:"
+  },
+  "labelGoogleLookup": {
+    "message": "Google DNS lookup ➔"
+  },
+  "labelReverseIp": {
+    "message": "Resolved IP(s):"
+  },
+  "labelSpfServer": {
+    "message": "Server SPF:"
+  },
+  "labelSpfEmail": {
+    "message": "Sender domain SPF:"
+  },
+  "labelReminder": {
+    "message": "⚠ Reminder"
+  },
+  "reminderIp": {
+    "message": "IP"
+  },
+  "reminderPart2": {
+    "message": "Other fields should be interpreted with caution, as they can be deliberately altered to deceive you (spoofing)."
+  },
+  "subjectUnavailable": {
+    "message": "Subject unavailable"
+  },
+  "authorUnavailable": {
+    "message": "Author unavailable"
+  },
+  "errorSubject": {
+    "message": "Error: unable to retrieve the subject"
+  },
+  "errorFrom": {
+    "message": "Error: unable to retrieve the sender"
+  },
+  "errorServer": {
+    "message": "Error: unable to retrieve the server"
+  },
+  "reminderPrefix": {
+    "message": ""
+  },
+  "reminderSuffix": {
+    "message": " is the only piece of information that is hard to forge."
+  }
+}
