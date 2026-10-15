@@ -1,3 +1,10 @@
+### Version 1.6.3 (English fork)
+- IPv6 audit and fixes: IPv4-mapped IPv6 addresses (::ffff:a.b.c.d) are treated as IPv4 for SPF, reverse DNS and private-address detection; multicast ranges are skipped when picking the handoff hop; bracketed `[IPv6:...]` HELO literals are cleaned up for display.
+- Reverse DNS now forward-confirms every PTR name (up to 5), not just the first, and trailing dots in header rDNS names are removed.
+- Authentication-Results trust: a header is trusted when its authserv-id matches the `by` host of any hop from the top down to the handoff hop (not only the topmost one). Headers with no authserv-id (Exchange Online internal stamps) are ignored without raising the forged-header warning.
+- Popup: DKIM rows from Authentication-Results no longer show "d=?" when the header has no domain.
+- Tests: IPv6 parsing/ranges/PTR/SPF dual-CIDR (`a/24//64`), Received styles (Postfix, Exim, Microsoft, Google), M365- and Gmail-shaped samples (49 tests).
+
 ### Version 1.6.2 (English fork)
 - DNS-over-HTTPS resolvers now tried in order with fallback: Cloudflare, NextDNS, AdGuard (unfiltered), DNS.SB, Google (3 s timeout; fallback on network/HTTP error or SERVFAIL, not on NXDOMAIN). Each own-DNS-check note names the resolver that answered. Host permissions match this list exactly.
 - Warning row and verdict downgrade when an untrusted Authentication-Results header is present. AR headers whose authserv-id shares the organizational domain of the trusted one (internal multi-hop) are not flagged.

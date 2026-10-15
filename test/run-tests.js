@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import * as L from "../src/messagePopup/lib.js";
 import { joinTxt, createDns } from "../src/messagePopup/dns.js";
-import { authenticHeaders, forgedARHeaders, spoofHeaders, mockDns, zone } from "./fixtures.js";
+import { authenticHeaders, forgedARHeaders, v6Headers, v6NoArHeaders, m365Headers, gmailHeaders, spoofHeaders, mockDns, zone } from "./fixtures.js";
 
 let pass = 0, fail = 0;
 async function test(name, fn) {
@@ -197,6 +197,132 @@ await test("createDns parses Google JSON and Cloudflare header", async () => {
     assert.equal(seen.opts.headers.accept, "application/dns-json");
     const nx = async () => ({ ok: true, json: async () => ({ Status: 3 }) });
     assert.deepEqual(await createDns(nx).a("c.example"), []);
+});
+
+
+// ================= IPv6 =================
+const dnsV6 = mockDns();
+await test("v6: parsing compressed/uncompressed/mapped/zone/brackets", () => {
+    const big = a => L.ipToBig(a).n;
+    assert.equal(big("2001:db8::1"), big("2001:0db8:0000:0000:0000:0000:0000:0001"));
+    assert.equal(big("2001:DB8::1"), big("2001:db8:0:0:0:0:0:1"));
+    assert.equal(big("[2001:db8::1]"), big("2001:db8::1")); assert.equal(big("IPv6:2001:db8::1"), big("2001:db8::1"));
+    assert.equal(big("fe80::1%eth0"), big("fe80::1"));
+    assert.equal(big("::"), 0n); assert.equal(big("::1"), 1n); assert.equal(big("1::"), 1n << 112n);
+    assert.equal(L.isIPv6("1:2:3:4:5:6:7:8:9"), false); assert.equal(L.isIPv6("1::2::3"), false); assert.equal(L.isIPv6("12345::1"), false);
+    assert.equal(L.isIPv6("::ffff:300.1.1.1"), false);
+});
+await test("v6: IPv4-mapped normalizes to IPv4 and matches ip4 ranges", () => {
+    assert.equal(L.normalizeIP("::ffff:192.0.2.9"), "192.0.2.9"); assert.equal(L.normalizeIP("::FFFF:c000:209"), "192.0.2.9");
+    assert.equal(L.normalizeIP("[IPv6:2001:db8::1]"), "2001:db8::1");
+    assert.ok(L.cidrMatch("::ffff:192.0.2.9", "192.0.2.0", 24)); assert.ok(L.sameIP("::ffff:192.0.2.9", "192.0.2.9"));
+    assert.ok(!L.cidrMatch("::ffff:192.0.2.9", "2001:db8::", 32));
+});
+await test("v6: ip6 ranges (compressed/uncompressed, boundaries, /0, /128)", () => {
+    assert.ok(L.cidrMatch("2001:db8:ffff::1", "2001:db8::", 32) === true);
+    assert.ok(!L.cidrMatch("2001:db9::1", "2001:db8::", 32));
+    assert.ok(L.cidrMatch("2001:db8::1", "2001:DB8:0:0:0:0:0:0", 32));
+    assert.ok(L.cidrMatch("2001:db8::1", "2001:db8::1", 128) && !L.cidrMatch("2001:db8::2", "2001:db8::1", 128));
+    assert.ok(L.cidrMatch("2001:db8::1", "::", 0)); assert.ok(!L.cidrMatch("2001:db8::1", "192.0.2.1", 24));
+});
+await test("v6: PTR nibble format", () => {
+    assert.equal(L.ptrName("2001:db8::567:89ab"), "b.a.9.8.7.6.5.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.8.b.d.0.1.0.0.2.ip6.arpa");
+    assert.equal(L.ptrName("2001:db8:25::5"), "5.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.5.2.0.0.8.b.d.0.1.0.0.2.ip6.arpa");
+    assert.equal(L.ptrName("::1").split(".").length, 34); assert.equal(L.ptrName("192.0.2.1"), "1.2.0.192.in-addr.arpa");
+});
+await test("v6: isPublicIP skips ::1, fe80::/10, fc00::/7, ::, ff00::/8, mapped-private", () => {
+    for (const a of ["::1", "fe80::1", "febf::1", "fc00::1", "fd12:3456::1", "::", "ff02::1", "::ffff:10.1.2.3", "::ffff:192.168.0.1", "::ffff:127.0.0.1"])
+        assert.equal(L.isPublicIP(a), false, a);
+    for (const a of ["2001:db8::1", "2a00:1450::1", "::ffff:8.8.8.8", "fec0::1"]) assert.equal(L.isPublicIP(a), true, a);
+});
+await test("v6: findHandoff skips ::1 / fe80 / ULA / mapped-private hops", () => {
+    const mk = ip => L.parseReceived(`from a.example (a.example [${ip}]) by b.example; Mon, 1 Jan 2026 00:00:00 +0000`);
+    const list = ["::1", "fe80::2", "fd00::3", "IPv6:::ffff:10.0.0.1", "IPv6:2001:db8::77"].map(x => mk(x.startsWith("IPv6:") ? x : "IPv6:" + x));
+    const h = L.findHandoff(list); assert.equal(h.index, 4); assert.equal(h.hop.ip, "2001:db8::77");
+});
+await test("v6: Received parsing styles", () => {
+    const P = L.parseReceived;
+    let r = P("from [IPv6:2001:db8::1] by mx.example (Postfix); Mon, 1 Jan 2026");
+    assert.equal(r.ip, "2001:db8::1"); assert.equal(r.helo, "ipv6:2001:db8::1".replace("ipv6:", "")); 
+    r = P("from [2001:db8::1] (helo=foo.example) by mx.example; Mon, 1 Jan 2026");
+    assert.equal(r.ip, "2001:db8::1");
+    r = P("from foo.example ([2001:db8::1]:54321 helo=foo.example) by mx.example with esmtps (Exim 4.97); Mon, 1 Jan 2026");
+    assert.equal(r.ip, "2001:db8::1"); assert.equal(r.helo, "foo.example");
+    r = P("from foo.example (foo.example [2001:db8::1]) by mx.example; Mon, 1 Jan 2026");
+    assert.equal(r.ip, "2001:db8::1"); assert.equal(r.rdns, "foo.example");
+    r = P("from mail-sor-f41.google.com (mail-sor-f41.google.com. [2607:f8b0:4864:20::f41]) by mx.example; Mon, 1 Jan 2026");
+    assert.equal(r.rdns, "mail-sor-f41.google.com"); assert.equal(r.ip, "2607:f8b0:4864:20::f41");
+    r = P("from EX1.example ([2001:db8::5]) by EX2.example with Microsoft SMTP Server; Mon, 1 Jan 2026");
+    assert.equal(r.ip, "2001:db8::5");
+    r = P("from foo.example (foo.example [::ffff:192.0.2.9]) by mx.example; Mon, 1 Jan 2026");
+    assert.equal(r.ip, "192.0.2.9");
+    r = P("from foo.example (HELO foo.example) (2001:db8::9) by mx.example; Mon, 1 Jan 2026"); // qmail style
+    assert.equal(r.helo, "foo.example");
+});
+await test("v6: SPF a//64, a/24//64, mx//48 dual-cidr", async () => {
+    assert.equal((await L.checkSpf("2001:db8:25::5", "v6.example.com", dnsV6)).result, "pass");   // a//64 matches 2001:db8:25::1/64
+    assert.equal((await L.checkSpf("2001:db8:26::5", "v6.example.com", dnsV6)).result, "fail");
+    assert.equal((await L.checkSpf("2001:db8:99:ff::1", "v6.example.com", dnsV6)).result, "pass"); // mx//48 -> 2001:db8:99::/48
+    assert.equal((await L.checkSpf("192.0.2.200", "v6.example.com", dnsV6)).result, "pass");       // a/24 uses A 192.0.2.1
+    assert.equal((await L.checkSpf("198.51.100.1", "v6.example.com", dnsV6)).result, "fail");
+});
+await test("v6: SPF queries only the client's address family (AAAA for v6, A for v4)", async () => {
+    const seen = []; const spy = { ...dnsV6, a: n => (seen.push("A " + n), dnsV6.a(n)), aaaa: n => (seen.push("AAAA " + n), dnsV6.aaaa(n)) };
+    await L.checkSpf("2001:db8:26::5", "onlyv4.example", spy); assert.deepEqual(seen, ["AAAA onlyv4.example"]);
+    seen.length = 0; await L.checkSpf("198.51.100.1", "onlyv4.example", spy); assert.deepEqual(seen, ["A onlyv4.example"]);
+    assert.equal((await L.checkSpf("2001:db8::1", "onlyv4.example", dnsV6)).result, "fail"); // v4-only SPF cannot authorize a v6 sender
+});
+await test("v6: SPF ip6 mechanism with mixed-case/uncompressed network; mapped client vs ip4", async () => {
+    assert.equal((await L.checkSpf("2001:db8:abcd::1", "six.example", dnsV6)).result, "pass");
+    assert.equal((await L.checkSpf("::ffff:192.0.2.77", "map.example", dnsV6)).result, "pass");
+});
+await test("v6: reverse DNS nibble PTR, forward-confirm via AAAA, multiple PTRs, HELO match", async () => {
+    let r = await L.checkRdns("2001:db8:25::5", "mail6.example.com", dnsV6);
+    assert.equal(r.result, "pass"); assert.equal(r.key, "rdnsMatch");
+    r = await L.checkRdns("2001:db8:25::5", "other.example.com", dnsV6); assert.equal(r.result, "neutral"); assert.equal(r.subs[1], "mail6.example.com");
+    const z = { ...zone, "AAAA mail6.example.com": ["2001:db8:25::6"] };      // first PTR no longer confirms; second (alt6) does not either
+    r = await L.checkRdns("2001:db8:25::5", "mail6.example.com", mockDns(z)); assert.equal(r.result, "fail"); assert.equal(r.key, "rdnsNotConfirmed");
+    const z2 = { ...z, "AAAA alt6.example.com": ["2001:db8:25::5"] };           // only the 2nd PTR confirms
+    r = await L.checkRdns("2001:db8:25::5", "alt6.example.com", mockDns(z2)); assert.equal(r.result, "pass");
+});
+await test("v6: analyze with trusted AR over IPv6 handoff (internal ULA hop above is skipped)", async () => {
+    const r = await L.analyze(v6Headers, dnsV6);
+    assert.equal(r.claim.handoff.hop.ip, "2001:db8:25::5"); assert.equal(r.claim.handoff.index, 0);
+    assert.equal(r.confirm.spf.result, "pass"); assert.equal(r.confirm.rdns.result, "pass");
+    assert.equal(r.confirm.arFlagged.length, 0);
+});
+await test("v6: analyze fallback (no AR) over IPv6: SPF pass aligned → authentic", async () => {
+    const r = await L.analyze(v6NoArHeaders, dnsV6);
+    assert.equal(r.confirm.spf.source.type, "own"); assert.equal(r.confirm.spf.result, "pass");
+    assert.equal(r.confirm.dmarc.result, "pass"); assert.equal(r.verdict.level, "authentic");
+});
+await test("AR trust: authserv matching a 'by' host between top and handoff is trusted", async () => {
+    const h = { ...v6Headers, received: [
+        "from filter.home.example.net (fd00::7) by relay.home.example.net; Thu, 15 Oct 2026 09:00:01 -0500",
+        v6Headers.received[0].replace("mx.home.example.net", "gw.home.example.net")],
+        "authentication-results": ["other.home.example.net; spf=fail smtp.mailfrom=x@v6.example.com", "gw.home.example.net; spf=pass smtp.mailfrom=bounce@v6.example.com"] };
+    const r = await L.analyze(h, dnsV6);
+    assert.equal(r.confirm.spf.source.by, "other.home.example.net"); // topmost wins
+    assert.equal(r.confirm.arIgnored, 0); assert.equal(r.confirm.arFlagged.length, 0);
+});
+
+// ============ synthetic big-sender shapes ============
+await test("M365 shape: IPv6 handoff, nameless internal AR ignored (not flagged), multi-signature DKIM, authentic", async () => {
+    const a = L.parseAuthResults(m365Headers["authentication-results"][1]);
+    assert.equal(a.authserv, ""); assert.deepEqual(a.results.map(r => r.method + "=" + r.result), ["spf=pass", "dkim=pass", "dmarc=pass", "compauth=pass"]);
+    const r = await L.analyze(m365Headers, dnsV6);
+    assert.equal(r.claim.handoff.hop.ip, "2001:db8:f400:fe::700"); assert.equal(r.claim.handoff.index, 0);
+    assert.equal(r.claim.handoff.hop.helo, "nam02-bn1-obe.outbound.protection.outlook.example");
+    assert.equal(r.claim.dkim.length, 2);
+    assert.equal(r.confirm.dkim.items.length, 2); assert.equal(r.confirm.dkim.items[0].d, "corp.example.com");
+    assert.equal(r.confirm.spf.domain, "corp.example.com"); assert.equal(r.confirm.dmarc.policy, "reject");
+    assert.equal(r.confirm.arFlagged.length, 0); assert.equal(r.verdict.level, "authentic");
+});
+await test("Gmail shape: 'by <ipv6-ish>' hop without from is skipped; rdns with trailing dot", async () => {
+    const r = await L.analyze(gmailHeaders, dnsV6);
+    assert.equal(r.claim.handoff.index, 0); assert.equal(r.claim.handoff.hop.rdns, "mail-sor-f41.google.example");
+    assert.equal(r.claim.received[1].hasFrom, false);
+    assert.equal(r.confirm.dmarc.policy, "none"); assert.equal(r.verdict.level, "authentic");
 });
 
 console.log(`\n${pass} passed, ${fail} failed`);

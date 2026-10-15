@@ -51,6 +51,7 @@ Own checks use DNS over HTTPS with the JSON API, trying these resolvers in order
 English is the default UI language (WebExtension i18n); the original French strings are in `_locales/fr`. More languages are planned, see [TODO.md](TODO.md).
 
 ## Versions
+- **1.6.3:** IPv6 hardening (IPv4-mapped addresses, handoff selection, PTR checks), better Authentication-Results trust, Exchange Online header shapes.
 - **1.6.2:** resolver fallback list, forged `Authentication-Results` warning with verdict downgrade.
 - **1.6.1:** new Claim / Confirm / Verdict panel, `Authentication-Results` parsing, own SPF/DMARC/reverse-DNS checks.
 - **1.6.0:** English-first fork (i18n, new name and ID).

@@ -78,7 +78,7 @@ function renderConfirm(c) {
 
     let dkimMain, dkimExtras = [];
     if (dkim.source.type === "ar") {
-        dkimMain = dkim.items.map(i => `d=${i.d || "?"} ${i.result}`).join(", ");
+        dkimMain = dkim.items.map(i => `${i.d ? "d=" + i.d + " " : ""}${i.result}`).join(", ");
     } else dkimMain = dkim.notVerified ? t("dkimNotVerified") : t("dkimNone");
     confirmRow(t("labelDKIM"), dkim.result, dkimMain, dkimExtras, dkim.source);
 

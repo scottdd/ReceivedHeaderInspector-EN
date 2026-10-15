@@ -51,7 +51,17 @@ function ipv6ToBig(s) {
 export function ipToBig(ip) {
     if (isIPv4(ip)) return { v: 4, n: ipv4ToBig(ip) };
     const n = ipv6ToBig(ip);
-    return n === null ? null : { v: 6, n };
+    if (n === null) return null;
+    // IPv4-mapped IPv6 (::ffff:a.b.c.d) is treated as the IPv4 address it wraps (RFC 7208 5, RFC 4291 2.5.5.2)
+    if ((n >> 32n) === 0xffffn) return { v: 4, n: n & 0xffffffffn };
+    return { v: 6, n };
+}
+// Text form used for display and DNS: bare address (no brackets / "IPv6:" tag); IPv4-mapped becomes dotted IPv4.
+export function normalizeIP(ip) {
+    const s = String(ip).replace(/^\[|\]$/g, "").replace(/^IPv6:/i, "");
+    const x = ipToBig(s);
+    if (x && x.v === 4 && !isIPv4(s)) return [24n, 16n, 8n, 0n].map(sh => Number((x.n >> sh) & 255n)).join(".");
+    return s;
 }
 export function sameIP(a, b) {
     const x = ipToBig(a), y = ipToBig(b);
@@ -67,13 +77,14 @@ export function cidrMatch(ip, net, bits) {
     return (x.n >> shift) === (y.n >> shift);
 }
 export function isPublicIP(ip) {
+    ip = normalizeIP(ip);
     if (isIPv4(ip)) {
         const priv = [["10.0.0.0", 8], ["172.16.0.0", 12], ["192.168.0.0", 16], ["127.0.0.0", 8],
-            ["169.254.0.0", 16], ["100.64.0.0", 10], ["0.0.0.0", 8]];
+            ["169.254.0.0", 16], ["100.64.0.0", 10], ["0.0.0.0", 8], ["224.0.0.0", 4]];
         return !priv.some(([n, b]) => cidrMatch(ip, n, b));
     }
     if (isIPv6(ip)) {
-        return !(sameIP(ip, "::1") || cidrMatch(ip, "fc00::", 7) || cidrMatch(ip, "fe80::", 10) || sameIP(ip, "::"));
+        return !(sameIP(ip, "::1") || cidrMatch(ip, "fc00::", 7) || cidrMatch(ip, "fe80::", 10) || sameIP(ip, "::") || cidrMatch(ip, "ff00::", 8));
     }
     return false;
 }
@@ -143,8 +154,9 @@ export function parseReceived(raw) {
             }
         }
         if (!r.ip && isIP(helo.replace(/^\[|\]$/g, ""))) r.ip = helo.replace(/^\[|\]$/g, "");
-        r.helo = helo.toLowerCase();
-        r.rdns = r.rdns.toLowerCase();
+        if (r.ip) r.ip = normalizeIP(r.ip);
+        r.helo = helo.replace(/^\[(?:IPv6:)?|\]$/gi, "").toLowerCase();
+        r.rdns = r.rdns.replace(/\.$/, "").toLowerCase();
     }
     return r;
 }
@@ -172,9 +184,12 @@ function splitTopLevel(s, sep) {
 export function parseAuthResults(raw) {
     const s = unfold(raw);
     const parts = splitTopLevel(s, ";");
-    const authserv = (parts[0].replace(/\([^)]*\)/g, " ").trim().split(/\s+/)[0] || "").toLowerCase();
+    // Exchange Online's internal stamps have no authserv-id ("spf=pass (sender IP is ...) smtp.mailfrom=...").
+    const head = parts[0].replace(/\([^)]*\)/g, " ").trim();
+    const noId = /^[a-z0-9_-]+\s*=\s*[a-z]+/i.test(head);
+    const authserv = noId ? "" : (head.split(/\s+/)[0] || "").toLowerCase();
     const results = [];
-    for (const p of parts.slice(1)) {
+    for (const p of (noId ? parts : parts.slice(1))) {
         const comments = [...p.matchAll(/\(([^)]*)\)/g)].map(m => m[1]);
         const clean = p.replace(/\([^)]*\)/g, " ").trim();
         const m = clean.match(/^([a-z0-9_-]+)\s*=\s*([a-z]+)/i);
@@ -193,13 +208,15 @@ export function parseAuthResults(raw) {
 // organizational domain of the trusted authserv-id are "flagged" as possibly forged; same-org ones
 // (internal multi-hop filtering) are just ignored.
 export function selectAR(arList, topBy) {
+    const byHosts = (Array.isArray(topBy) ? topBy : [topBy]).filter(Boolean).map(h => h.toLowerCase());
     const trusted = [], ignored = [], flagged = [];
     arList.forEach((a, i) => {
-        if (i === 0 || (topBy && a.authserv === topBy.toLowerCase())) trusted.push(a); else ignored.push(a);
+        if (i === 0 || byHosts.includes(a.authserv)) trusted.push(a); else ignored.push(a);
     });
     const trustedOrgs = new Set(trusted.map(a => orgDomain(a.authserv)));
     for (const a of ignored) {
-        if (a.results.length && !trusted.some(t => t.authserv === a.authserv) && !trustedOrgs.has(orgDomain(a.authserv))) flagged.push(a);
+        // No authserv-id (Exchange Online internal stamp): cannot be attributed to a host, so it is ignored but not flagged.
+        if (a.authserv && a.results.length && !trusted.some(t => t.authserv === a.authserv) && !trustedOrgs.has(orgDomain(a.authserv))) flagged.push(a);
     }
     return { trusted, ignored: ignored.filter(a => !flagged.includes(a)), flagged };
 }
@@ -322,12 +339,17 @@ export async function checkRdns(ip, helo, dns) {
     let names;
     try { names = await dns.ptr(ptrName(ip)); } catch { return { result: "temperror", key: "dnsError", subs: [] }; }
     if (!names.length) return { result: "fail", key: "rdnsNone", subs: [ip] };
-    const name = names[0].toLowerCase();
-    let addrs = [];
-    try { addrs = await addrsFor(name, isIPv4(ip) ? 4 : 6, dns); } catch { return { result: "temperror", key: "dnsError", subs: [] }; }
-    if (!addrs.some(a => sameIP(a, ip))) return { result: "fail", key: "rdnsNotConfirmed", subs: [ip, name] };
-    if (helo && helo.toLowerCase() === name) return { result: "pass", key: "rdnsMatch", subs: [ip, name] };
-    return { result: "neutral", key: "rdnsMismatch", subs: [ip, name, helo || "?"] };
+    // Forward-confirm each PTR name (max 5) via A (IPv4 client) or AAAA (IPv6 client).
+    const family = ipToBig(ip).v;
+    const confirmed = [];
+    for (const n of names.slice(0, 5).map(x => x.toLowerCase())) {
+        try { if ((await addrsFor(n, family, dns)).some(a => sameIP(a, ip))) confirmed.push(n); }
+        catch { return { result: "temperror", key: "dnsError", subs: [] }; }
+    }
+    if (!confirmed.length) return { result: "fail", key: "rdnsNotConfirmed", subs: [ip, names[0].toLowerCase()] };
+    const h = (helo || "").toLowerCase();
+    if (h && confirmed.includes(h)) return { result: "pass", key: "rdnsMatch", subs: [ip, h] };
+    return { result: "neutral", key: "rdnsMismatch", subs: [ip, confirmed[0], helo || "?"] };
 }
 
 // ---------- claim ----------
@@ -370,8 +392,10 @@ export async function analyze(headers, dns) {
     const claim = extractClaim(headers);
     const fromDomain = claim.from.domain;
     const hop = claim.handoff?.hop || null;
-    const topBy = claim.received[0]?.by || "";
-    const ar = selectAR(getHeader(headers, "authentication-results").map(parseAuthResults), topBy);
+    // Own-server host names: "by" of every hop from the top down to (and including) the handoff hop.
+    const upTo = claim.handoff ? claim.handoff.index : 0;
+    const ownBy = claim.received.slice(0, upTo + 1).map(r => r.by).filter(Boolean);
+    const ar = selectAR(getHeader(headers, "authentication-results").map(parseAuthResults), ownBy);
     const all = ar.trusted.flatMap(a => a.results.map(r => ({ ...r, by: a.authserv })));
     const own = () => { const sc = dns.scope ? dns.scope() : dns; return { dns: sc, source: { type: "own", get resolvers() { return [...(sc.used || [])]; } } }; };
     const envDomain = claim.returnPath?.domain || "";

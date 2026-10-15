@@ -59,3 +59,65 @@ export const cleanHeaders = {
     ...authenticHeaders,
     "authentication-results": [authenticHeaders["authentication-results"][0]]
 };
+
+// ---- IPv6 fixtures (documentation prefix 2001:db8::/32 only) ----
+export const v6Headers = {
+    "received": [
+        "from mail6.example.com (mail6.example.com [IPv6:2001:db8:25::5])\r\n\tby mx.home.example.net (Postfix) with ESMTPS id 9F; Thu, 15 Oct 2026 09:00:00 -0500",
+        "from internal-filter.home.example.net (fd00::7) by mx.home.example.net; Thu, 15 Oct 2026 14:00:00 +0000"
+    ],
+    "authentication-results": ["mx.home.example.net; spf=pass smtp.mailfrom=bounce@v6.example.com; dkim=none; dmarc=none header.from=v6.example.com"],
+    "from": ["V6 Sender <hello@v6.example.com>"],
+    "return-path": ["<bounce@v6.example.com>"]
+};
+export const v6NoArHeaders = {
+    "received": [
+        "from mail6.example.com (mail6.example.com [IPv6:2001:db8:25::5]) by mx.home.example.net (Postfix) with ESMTPS; Thu, 15 Oct 2026 09:00:00 -0500"
+    ],
+    "from": ["V6 Sender <hello@v6.example.com>"],
+    "return-path": ["<bounce@v6.example.com>"],
+    "dkim-signature": ["v=1; d=v6.example.com; s=k1; b=x"]
+};
+Object.assign(zone, {
+    "TXT v6.example.com": ["v=spf1 a/24//64 mx//48 -all"],
+    "AAAA v6.example.com": ["2001:db8:25::1"],
+    "A v6.example.com": ["192.0.2.1"],
+    "MX v6.example.com": ["10 mx.v6.example.com."],
+    "AAAA mx.v6.example.com": ["2001:db8:99::3"],
+    "TXT _dmarc.v6.example.com": ["v=DMARC1; p=quarantine"],
+    // 2001:db8:25::5 -> nibble PTR
+    "PTR 5.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.5.2.0.0.8.b.d.0.1.0.0.2.ip6.arpa": ["mail6.example.com.", "alt6.example.com."],
+    "AAAA mail6.example.com": ["2001:db8:25::5"],
+    "AAAA alt6.example.com": ["2001:db8:25::99"],
+    "TXT map.example": ["v=spf1 ip4:192.0.2.0/24 -all"],
+    "TXT six.example": ["v=spf1 ip6:2001:DB8:0:0:0:0:0:0/32 -all"],
+    "TXT onlyv4.example": ["v=spf1 ip4:192.0.2.0/24 a -all"],
+    "A onlyv4.example": ["192.0.2.55"],
+});
+
+// ---- Synthetic big-sender formats (documentation addresses; modelled on Microsoft 365 / Gmail header shapes) ----
+export const m365Headers = {
+    "received": [
+        "from NAM02-BN1-obe.outbound.protection.outlook.example (mail-bn1nam02on20700.outbound.protection.outlook.example [2001:db8:f400:fe::700])\r\n by mx.home.example.net (Postfix) with ESMTPS id ABC123; Thu, 15 Oct 2026 10:09:00 -0500 (CDT)",
+        "from DM6PR12CA0001.example.org (2001:db8:10b6:5::2) by DM6PR12MB0002.example.org (2001:db8:10b6:5::3) with Microsoft SMTP Server (version=TLS1_2, cipher=TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384) id 15.20.9; Thu, 15 Oct 2026 15:09:00 +0000",
+        "from CH0PR00MB0001.example.org (2001:db8:10b6:5::4) by DM6PR12CA0001.example.org with HTTPS; Thu, 15 Oct 2026 15:08:59 +0000"
+    ],
+    "authentication-results": [
+        "mx.home.example.net;\r\n\tdkim=pass (2048-bit key; unprotected) header.d=corp.example.com header.i=@corp.example.com header.b=\"AbCd1234\";\r\n\tdkim=pass (2048-bit key; unprotected) header.d=corp.onmicrosoft.example header.i=@corp.onmicrosoft.example header.b=\"EfGh5678\";\r\n\tdmarc=pass (p=reject dis=none) header.from=corp.example.com;\r\n\tspf=pass smtp.mailfrom=corp.example.com",
+        "spf=pass (sender IP is 2001:db8:f400:fe::700) smtp.mailfrom=corp.example.com; dkim=pass (signature was verified) header.d=corp.example.com; dmarc=pass action=none header.from=corp.example.com;compauth=pass reason=100"
+    ],
+    "from": ["\"Pat Example\" <pat@corp.example.com>"],
+    "return-path": ["<pat@corp.example.com>"],
+    "dkim-signature": ["v=1; a=rsa-sha256; c=relaxed/relaxed; d=corp.example.com; s=selector1; h=From:Date:Subject; bh=x; b=y",
+        "v=1; a=rsa-sha256; c=relaxed/relaxed; d=corp.onmicrosoft.example; s=selector1-corp-example-com; h=From:Date; bh=x; b=y"]
+};
+export const gmailHeaders = {
+    "received": [
+        "from mail-sor-f41.google.example (mail-sor-f41.google.example. [2001:db8:4864:20::f41])\r\n        by mx.home.example.net (Postfix) with ESMTPS id 77\r\n        for <me@home.example.net>; Thu, 15 Oct 2026 10:00:00 -0500 (CDT)",
+        "by 2002:a05:6a20:1234:b0:1a:2b:3c with SMTP id abc123csp1;\r\n        Thu, 15 Oct 2026 08:00:00 -0700 (PDT)"
+    ],
+    "authentication-results": ["mx.home.example.net;\r\n\tdkim=pass (2048-bit key) header.d=gmail.example header.s=20230601 header.b=Zz;\r\n\tspf=pass smtp.mailfrom=someone@gmail.example;\r\n\tdmarc=pass (p=NONE sp=QUARANTINE dis=NONE) header.from=gmail.example"],
+    "from": ["Some One <someone@gmail.example>"],
+    "return-path": ["<someone@gmail.example>"]
+};
+Object.assign(zone, { "PTR 7.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.e.f.0.0.4.0.0.0.0.0.0.0.0.0.0.0.0.f.0.0.f.0.8.b.d.0.1.0.0.2.ip6.arpa": [] });
