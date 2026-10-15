@@ -1,3 +1,7 @@
+### Version 1.6.2 (English fork)
+- DNS-over-HTTPS resolvers now tried in order with fallback: Cloudflare, NextDNS, AdGuard (unfiltered), DNS.SB, Google (3 s timeout; fallback on network/HTTP error or SERVFAIL, not on NXDOMAIN). Each own-DNS-check note names the resolver that answered. Host permissions match this list exactly.
+- Warning row and verdict downgrade when an untrusted Authentication-Results header is present. AR headers whose authserv-id shares the organizational domain of the trusted one (internal multi-hop) are not flagged.
+
 ### Version 1.6.1 (English fork)
 - Redesigned popup: Claim (From, Return-Path, DKIM d=, handoff server, Sender), Confirm (SPF, DKIM, DMARC, reverse DNS with pass/fail badges and source), Verdict, collapsible delivery path.
 - Uses trusted Authentication-Results when present; otherwise own DNS-over-HTTPS checks (SPF evaluation, DMARC alignment). Reverse DNS is always checked locally.

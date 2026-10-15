@@ -186,15 +186,22 @@ export function parseAuthResults(raw) {
         for (const c of comments) for (const cm of c.matchAll(/\b([a-z]+)=([a-z0-9._-]+)/gi)) cprops[cm[1].toLowerCase()] = cm[2].toLowerCase();
         results.push({ method: m[1].toLowerCase(), result: m[2].toLowerCase(), props, cprops });
     }
-    return { authserv, results };
+    return { authserv, results, raw: s };
 }
 // Trust the topmost AR header, plus any whose authserv-id equals the topmost Received "by" host.
+// Other AR headers are not used. Those that claim results and whose authserv-id does not share the
+// organizational domain of the trusted authserv-id are "flagged" as possibly forged; same-org ones
+// (internal multi-hop filtering) are just ignored.
 export function selectAR(arList, topBy) {
-    const trusted = [], ignored = [];
+    const trusted = [], ignored = [], flagged = [];
     arList.forEach((a, i) => {
         if (i === 0 || (topBy && a.authserv === topBy.toLowerCase())) trusted.push(a); else ignored.push(a);
     });
-    return { trusted, ignored };
+    const trustedOrgs = new Set(trusted.map(a => orgDomain(a.authserv)));
+    for (const a of ignored) {
+        if (a.results.length && !trusted.some(t => t.authserv === a.authserv) && !trustedOrgs.has(orgDomain(a.authserv))) flagged.push(a);
+    }
+    return { trusted, ignored: ignored.filter(a => !flagged.includes(a)), flagged };
 }
 
 // ---------- SPF ----------
@@ -341,6 +348,14 @@ export function extractClaim(headers) {
 
 // ---------- verdict ----------
 export function verdict(fromDomain, c) {
+    const v = baseVerdict(fromDomain, c);
+    if (c.arFlagged?.length) {
+        if (v.level === "authentic") return { level: "suspicious", key: "reasonDockedAR", subs: [fromDomain], docked: true };
+        if (v.level === "suspicious") return { ...v, key: "reasonMixedAR" };
+    }
+    return v;
+}
+function baseVerdict(fromDomain, c) {
     if (c.dmarc.result === "pass") return { level: "authentic", key: "reasonDmarcPass", subs: [fromDomain] };
     if (c.dmarc.result === "fail") return { level: "spoofed", key: "reasonDmarcFail", subs: [fromDomain] };
     const dkimAlignedPass = c.dkim.items.some(x => x.result === "pass" && aligned(x.d, fromDomain));
@@ -358,7 +373,7 @@ export async function analyze(headers, dns) {
     const topBy = claim.received[0]?.by || "";
     const ar = selectAR(getHeader(headers, "authentication-results").map(parseAuthResults), topBy);
     const all = ar.trusted.flatMap(a => a.results.map(r => ({ ...r, by: a.authserv })));
-    const own = { type: "own" };
+    const own = () => { const sc = dns.scope ? dns.scope() : dns; return { dns: sc, source: { type: "own", get resolvers() { return [...(sc.used || [])]; } } }; };
     const envDomain = claim.returnPath?.domain || "";
 
     // SPF
@@ -369,9 +384,9 @@ export async function analyze(headers, dns) {
         const d = mf.includes("@") ? mf.split("@").pop() : (mf || envDomain || arSpf.props["smtp.helo"] || "");
         spf = { result: arSpf.result, domain: d.toLowerCase(), ip: hop?.ip || "", source: { type: "ar", by: arSpf.by } };
     } else {
-        const d = envDomain || hop?.helo || "";
-        const r = hop?.ip ? await checkSpf(hop.ip, d, dns) : { result: "none" };
-        spf = { result: r.result, domain: d, ip: hop?.ip || "", reason: r.reason, mechanism: r.mechanism, source: own };
+        const d = envDomain || hop?.helo || "", o = own();
+        const r = hop?.ip ? await checkSpf(hop.ip, d, o.dns) : { result: "none" };
+        spf = { result: r.result, domain: d, ip: hop?.ip || "", reason: r.reason, mechanism: r.mechanism, source: o.source };
     }
 
     // DKIM
@@ -382,7 +397,7 @@ export async function analyze(headers, dns) {
         const res = items.some(i => i.result === "pass") ? "pass" : items[0].result;
         dkim = { result: res, items, verified: true, source: { type: "ar", by: arDkim[0].by } };
     } else {
-        dkim = { result: claim.dkim.length ? "neutral" : "none", items: [], verified: false, notVerified: claim.dkim.length > 0, source: own };
+        dkim = { result: claim.dkim.length ? "neutral" : "none", items: [], verified: false, notVerified: claim.dkim.length > 0, source: { type: "own", resolvers: [] } };
     }
 
     // DMARC
@@ -392,13 +407,15 @@ export async function analyze(headers, dns) {
         const policy = arDmarc.props["policy.published-domain-policy"] || arDmarc.props["policy.dmarc"] || arDmarc.cprops.p || "";
         dmarc = { result: arDmarc.result, policy: policy.toLowerCase(), domain: (arDmarc.props["header.from"] || fromDomain).toLowerCase(), source: { type: "ar", by: arDmarc.by } };
     } else {
-        let record = null, err = false;
-        try { record = await fetchDmarc(fromDomain, dns); } catch { err = true; }
+        let record = null, err = false; const o = own();
+        try { record = await fetchDmarc(fromDomain, o.dns); } catch { err = true; }
         const r = err ? { result: "temperror" } : evalDmarc({ fromDomain, spf, dkim: dkim.items, dkimVerified: dkim.verified, signatures: claim.dkim, record });
-        dmarc = { ...r, domain: fromDomain, policy: r.policy || "", orgNote: true, source: own };
+        dmarc = { ...r, domain: fromDomain, policy: r.policy || "", orgNote: true, source: o.source };
     }
 
-    const rdns = { ...(await checkRdns(hop?.ip, hop?.helo, dns)), source: own };
-    const confirm = { spf, dkim, dmarc, rdns, arIgnored: ar.ignored.length };
+    const ro = own();
+    const rdns = { ...(await checkRdns(hop?.ip, hop?.helo, ro.dns)), source: ro.source };
+    const confirm = { spf, dkim, dmarc, rdns, arIgnored: ar.ignored.length, arFlagged: ar.flagged,
+        arTrustedBy: ar.trusted[0]?.authserv || "" };
     return { claim, confirm, verdict: verdict(fromDomain, confirm) };
 }

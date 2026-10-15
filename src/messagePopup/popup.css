@@ -8,7 +8,7 @@ h2:first-child { margin-top: 0; }
 .sub { color: #666; font-size: 11px; }
 .row { display: grid; grid-template-columns: 72px 88px 1fr; align-items: center; gap: 6px; padding: 4px 0; border-bottom: 1px solid #f0f0f0; }
 .badge { display: inline-block; min-width: 60px; padding: 1px 4px; box-sizing: border-box; text-align: center; border-radius: 10px; font-size: 10.5px; font-weight: bold; color: #fff; }
-.pass { background: #2e7d32; } .fail { background: #c62828; } .neutral { background: #888; }
+.pass { background: #2e7d32; } .fail { background: #c62828; } .neutral { background: #888; } .warn { background: #d08700; }
 .src { font-size: 10.5px; color: #777; font-style: italic; }
 .verdict { border-radius: 6px; padding: 10px; color: #fff; margin-top: 6px; }
 .verdict b { font-size: 16px; display: block; }

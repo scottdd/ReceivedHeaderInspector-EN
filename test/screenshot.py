@@ -28,8 +28,13 @@ with sync_playwright() as p:
     b = p.chromium.launch(executable_path="/usr/bin/google-chrome")
     pg = b.new_page(viewport={"width": 420, "height": 500}, device_scale_factor=2)
     pg.on("console", lambda m: print("console:", m.text))
-    pg.add_init_script(init); pg.route("https://dns.google/**", dns_route)
+    pg.add_init_script(init)
+    for h in ["cloudflare-dns.com","dns.nextdns.io","unfiltered.adguard-dns.com","doh.dns.sb","dns.google"]:
+        pg.route(f"https://{h}/**", dns_route)
     pg.goto(f"http://127.0.0.1:{port}/src/messagePopup/popup.html")
     pg.wait_for_function("!document.getElementById('verdict').classList.contains('pending')", timeout=10000)
+    if len(sys.argv) > 4:  # expand rows whose text contains any of the given keywords
+        for kw in sys.argv[4].split("|"):
+            pg.locator(".x", has_text=kw).first.click()
     pg.screenshot(path=out, full_page=True); b.close()
 srv.shutdown()

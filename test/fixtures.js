@@ -44,3 +44,12 @@ export function mockDns(z = zone) {
         mx: async n => (await q("MX", n)).map(d => d.split(/\s+/).pop().replace(/\.$/, "")),
         ptr: async n => (await q("PTR", n)).map(d => d.replace(/\.$/, "")) };
 }
+
+export const forgedARHeaders = {
+    ...authenticHeaders,
+    "authentication-results": [
+        authenticHeaders["authentication-results"][0],
+        "evil.example.org; spf=pass smtp.mailfrom=x@evil.example.org; dmarc=pass header.from=example.com",
+        "relay2.home.example.net; dkim=pass header.d=example.com"
+    ]
+};

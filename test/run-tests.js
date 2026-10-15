@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import * as L from "../src/messagePopup/lib.js";
 import { joinTxt, createDns } from "../src/messagePopup/dns.js";
-import { authenticHeaders, spoofHeaders, mockDns, zone } from "./fixtures.js";
+import { authenticHeaders, forgedARHeaders, spoofHeaders, mockDns, zone } from "./fixtures.js";
 
 let pass = 0, fail = 0;
 async function test(name, fn) {
@@ -53,7 +53,7 @@ await test("parseAuthResults", () => {
 await test("selectAR trusts topmost / matching authserv only", () => {
     const list = authenticHeaders["authentication-results"].map(L.parseAuthResults);
     const s = L.selectAR(list, "mx.home.example.net");
-    assert.equal(s.trusted.length, 1); assert.equal(s.ignored.length, 1);
+    assert.equal(s.trusted.length, 1); assert.equal(s.flagged.length, 1); assert.equal(s.flagged[0].authserv, "evil.example.org");
     const s2 = L.selectAR([list[1], list[0]], "mx.home.example.net");
     assert.equal(s2.trusted.length, 2);
 });
@@ -103,12 +103,12 @@ await test("orgDomain / alignment", () => {
     assert.ok(L.aligned("mail.example.com", "example.com"));
     assert.ok(!L.aligned("mail.example.com", "example.com", "s"));
 });
-await test("analyze: trusted AR → authentic, untrusted AR ignored", async () => {
+await test("analyze: trusted AR + forged AR present", async () => {
     const r = await L.analyze(authenticHeaders, dns);
     assert.equal(r.confirm.spf.source.type, "ar"); assert.equal(r.confirm.spf.domain, "mail.example.com");
-    assert.equal(r.confirm.dmarc.policy, "reject"); assert.equal(r.confirm.arIgnored, 1);
+    assert.equal(r.confirm.dmarc.policy, "reject"); assert.equal(r.confirm.arFlagged.length, 1);
     assert.equal(r.confirm.rdns.result, "neutral"); // PTR smtp25 != HELO out-3, forward-confirmed
-    assert.equal(r.verdict.level, "authentic");
+    assert.equal(r.verdict.level, "suspicious"); assert.equal(r.verdict.key, "reasonDockedAR");
     assert.equal(r.claim.handoff.hop.helo, "out-3.mail.example.com");
 });
 await test("analyze: no AR fallback → spoofed", async () => {
@@ -129,12 +129,71 @@ await test("analyze: own SPF pass aligned → authentic", async () => {
     assert.equal(r.confirm.spf.result, "pass"); assert.equal(r.confirm.dmarc.result, "pass");
     assert.equal(r.verdict.level, "authentic");
 });
+await test("analyze: clean trusted AR → authentic", async () => {
+    const h = { ...authenticHeaders, "authentication-results": [authenticHeaders["authentication-results"][0]] };
+    const r = await L.analyze(h, dns);
+    assert.equal(r.verdict.level, "authentic"); assert.equal(r.confirm.arFlagged.length, 0);
+});
+await test("AR flagging: same-org internal AR not flagged, forged one flagged, verdict docked", async () => {
+    const r = await L.analyze(forgedARHeaders, dns);
+    assert.deepEqual(r.confirm.arFlagged.map(a => a.authserv), ["evil.example.org"]);
+    assert.equal(r.confirm.arIgnored, 1); // relay2.home.example.net: same org as mx.home.example.net
+    assert.equal(r.verdict.level, "suspicious");
+});
+await test("verdict docking: suspicious stays suspicious with AR reason; spoofed unchanged", () => {
+    const base = { dmarc: { result: "none" }, dkim: { items: [] }, spf: { result: "neutral" }, arFlagged: [{}] };
+    const v = L.verdict("example.com", base);
+    assert.equal(v.level, "suspicious"); assert.equal(v.key, "reasonMixedAR");
+    assert.equal(L.verdict("example.com", { ...base, dmarc: { result: "fail" } }).level, "spoofed");
+    assert.equal(L.verdict("example.com", { ...base, arFlagged: [] }).key, "reasonMixed");
+});
+await test("analyze: own-check resolver names are reported", async () => {
+    const f = async () => ({ ok: true, json: async () => ({ Status: 0, Answer: [] }) });
+    const r = await L.analyze(spoofHeaders, createDns(f, [{ name: "R1", url: "https://r1.example/q" }]));
+    assert.deepEqual(r.confirm.spf.source.resolvers, ["R1"]); assert.deepEqual(r.confirm.rdns.source.resolvers, ["R1"]);
+});
+
+// ---- resolver fallback ----
+const OK = answer => ({ ok: true, json: async () => ({ Status: 0, Answer: answer }) });
+const RS = [{ name: "A", url: "https://a.example/q" }, { name: "B", url: "https://b.example/q" }, { name: "C", url: "https://c.example/q" }];
+const host = u => new URL(u).hostname[0].toUpperCase();
+await test("fallback: network error → next resolver, order respected", async () => {
+    const calls = [];
+    const f = async u => { calls.push(host(u)); if (host(u) === "A") throw new TypeError("network"); return OK([{ type: 1, data: "192.0.2.1" }]); };
+    const d = createDns(f, RS); assert.deepEqual(await d.a("x.example"), ["192.0.2.1"]);
+    assert.deepEqual(calls, ["A", "B"]); assert.deepEqual([...d.used], ["B"]);
+});
+await test("fallback: HTTP error and SERVFAIL → next resolver", async () => {
+    const f = async u => host(u) === "A" ? { ok: false, status: 503 } : host(u) === "B" ? { ok: true, json: async () => ({ Status: 2 }) } : OK([{ type: 1, data: "192.0.2.3" }]);
+    const d = createDns(f, RS); assert.deepEqual(await d.a("x.example"), ["192.0.2.3"]); assert.deepEqual([...d.used], ["C"]);
+});
+await test("fallback: timeout → next resolver", async () => {
+    const f = (u, o) => host(u) === "A" ? new Promise(() => {}) : Promise.resolve(OK([{ type: 1, data: "192.0.2.4" }]));
+    const t0 = Date.now(); const d = createDns(f, RS, 100);
+    assert.deepEqual(await d.a("x.example"), ["192.0.2.4"]); assert.ok(Date.now() - t0 < 1000);
+});
+await test("no fallback on NXDOMAIN", async () => {
+    const calls = [];
+    const f = async u => { calls.push(host(u)); return { ok: true, json: async () => ({ Status: 3 }) }; };
+    assert.deepEqual(await createDns(f, RS).a("nx.example"), []); assert.deepEqual(calls, ["A"]);
+});
+await test("all resolvers failing → error", async () => {
+    await assert.rejects(createDns(async () => { throw new Error("down"); }, RS).a("x.example"), /All resolvers failed/);
+});
+await test("shipped resolver list matches manifest host permissions exactly", async () => {
+    const { RESOLVERS } = await import("../src/messagePopup/dns.js");
+    const { readFileSync } = await import("node:fs");
+    const m = JSON.parse(readFileSync(new URL("../src/manifest.json", import.meta.url)));
+    const hosts = m.permissions.filter(p => p.startsWith("https://")).sort();
+    assert.deepEqual(hosts, RESOLVERS.map(r => new URL(r.url).origin + "/*").sort());
+    assert.equal(RESOLVERS[0].name, "Cloudflare"); assert.equal(RESOLVERS.at(-1).name, "Google");
+});
+
 await test("createDns parses Google JSON and Cloudflare header", async () => {
     let seen;
     const fake = async (url, opts) => { seen = { url, opts }; return { ok: true, json: async () => ({ Status: 0, Answer: [{ type: 5, data: "x." }, { type: 16, data: '"v=spf1 " "-all"' }] }) }; };
     assert.deepEqual(await createDns(fake).txt("a.example"), ["v=spf1 -all"]);
-    assert.match(seen.url, /^https:\/\/dns\.google\/resolve\?name=a\.example&type=TXT$/);
-    await createDns(fake, { url: "https://cloudflare-dns.com/dns-query", style: "cloudflare" }).a("b.example");
+    assert.match(seen.url, /^https:\/\/cloudflare-dns\.com\/dns-query\?name=a\.example&type=TXT$/);
     assert.equal(seen.opts.headers.accept, "application/dns-json");
     const nx = async () => ({ ok: true, json: async () => ({ Status: 3 }) });
     assert.deepEqual(await createDns(nx).a("c.example"), []);

@@ -81,7 +81,7 @@
     "message": "own DNS check"
   },
   "arIgnored": {
-    "message": "$1 untrusted Authentication-Results header(s) ignored"
+    "message": "$1 other Authentication-Results header(s) from the same organization ignored"
   },
   "spfAR": {
     "message": "smtp.mailfrom domain: $1"
@@ -169,5 +169,23 @@
   },
   "errorGeneric": {
     "message": "Error: $1"
+  },
+  "srcOwnVia": {
+    "message": "own DNS check via $1"
+  },
+  "labelARWarn": {
+    "message": "Warning"
+  },
+  "arWarnMain": {
+    "message": "Untrusted Authentication-Results header present (from $1)"
+  },
+  "arWarnDetail": {
+    "message": "Not from your receiving server ($1) or its organization, so it may be forged. It was ignored. Header content:"
+  },
+  "reasonDockedAR": {
+    "message": "Checks pass for $1, but an untrusted Authentication-Results header is present (possibly forged)."
+  },
+  "reasonMixedAR": {
+    "message": "No aligned authentication pass for $1, and an untrusted Authentication-Results header is present."
   }
 }

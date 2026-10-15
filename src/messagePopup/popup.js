@@ -28,10 +28,14 @@ function localizePage() {
 }
 function badgeClass(r) {
     if (r === "pass") return "pass";
+    if (r === "warn") return "warn";
     if (["fail", "softfail", "permerror"].includes(r)) return "fail";
     return "neutral";
 }
-function sourceText(s) { return s.type === "ar" ? t("srcAR", s.by) : t("srcOwn"); }
+function sourceText(s) {
+    if (s.type === "ar") return t("srcAR", s.by);
+    return s.resolvers?.length ? t("srcOwnVia", s.resolvers.join(", ")) : t("srcOwn");
+}
 
 function renderClaim(c) {
     const g = $("claim");
@@ -60,7 +64,7 @@ function confirmRow(label, result, main, extras, source) {
     const row = el("div", "row");
     row.appendChild(el("span", "badge " + badgeClass(result), (result || "none").toUpperCase()));
     row.appendChild(el("span", "k", label));
-    row.appendChild(cell(main, [...extras, { text: sourceText(source), cls: "src" }]));
+    row.appendChild(cell(main, source.type === "none" ? extras : [...extras, { text: sourceText(source), cls: "src" }]));
     $("confirm").appendChild(row);
 }
 
@@ -88,6 +92,10 @@ function renderConfirm(c) {
     confirmRow(t("labelDMARC"), dmarc.result, dmarcMain, dmarc.orgNote ? [{ text: t("orgNote") }] : [], dmarc.source);
 
     confirmRow(t("labelRDNS"), rdns.result, t(rdns.key, ...rdns.subs), [], rdns.source);
+    for (const a of c.arFlagged || []) {
+        confirmRow(t("labelARWarn"), "warn", t("arWarnMain", a.authserv || "?"),
+            [{ text: t("arWarnDetail", c.arTrustedBy || "?") }, { text: a.raw, cls: "sub mono" }], { type: "none" });
+    }
     if (c.arIgnored) $("arnote").textContent = t("arIgnored", c.arIgnored);
 }
 

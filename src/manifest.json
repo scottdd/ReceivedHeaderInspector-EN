@@ -2,7 +2,7 @@
     "manifest_version": 2,
     "name": "__MSG_extName__",
     "description": "__MSG_extDescription__",
-    "version": "1.6.1",
+    "version": "1.6.2",
     "author": "Olivier P. (original author); English fork by Scott Dowlen",
     "default_locale": "en",
     "browser_specific_settings": {
@@ -18,8 +18,11 @@
     },
     "permissions": [
         "messagesRead",
-        "https://dns.google/*",
-        "https://cloudflare-dns.com/*"
+        "https://cloudflare-dns.com/*",
+        "https://dns.nextdns.io/*",
+        "https://unfiltered.adguard-dns.com/*",
+        "https://doh.dns.sb/*",
+        "https://dns.google/*"
     ],
     "icons": {
         "64": "images/bouclier-64px.png",

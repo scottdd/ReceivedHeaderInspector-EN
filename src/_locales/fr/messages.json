@@ -81,7 +81,7 @@
     "message": "vérification DNS locale"
   },
   "arIgnored": {
-    "message": "$1 en-tête(s) Authentication-Results non fiable(s) ignoré(s)"
+    "message": "$1 autre(s) en-tête(s) Authentication-Results de la même organisation ignoré(s)"
   },
   "spfAR": {
     "message": "Domaine smtp.mailfrom : $1"
@@ -169,5 +169,23 @@
   },
   "errorGeneric": {
     "message": "Erreur : $1"
+  },
+  "srcOwnVia": {
+    "message": "vérification DNS locale via $1"
+  },
+  "labelARWarn": {
+    "message": "Alerte"
+  },
+  "arWarnMain": {
+    "message": "En-tête Authentication-Results non fiable présent (de $1)"
+  },
+  "arWarnDetail": {
+    "message": "Ne provient pas de votre serveur de réception ($1) ni de son organisation ; il peut être falsifié. Il a été ignoré. Contenu de l'en-tête :"
+  },
+  "reasonDockedAR": {
+    "message": "Les vérifications réussissent pour $1, mais un en-tête Authentication-Results non fiable est présent (peut-être falsifié)."
+  },
+  "reasonMixedAR": {
+    "message": "Aucune authentification alignée valide pour $1, et un en-tête Authentication-Results non fiable est présent."
   }
 }
