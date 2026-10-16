@@ -1,4 +1,4 @@
-### Unreleased (English fork)
+### Version 1.6.6 (English fork)
 - Fix: DKIM and DMARC shown as "none" (or a false "untrusted Authentication-Results" warning) on mail sent from Microsoft 365 to a non-Microsoft server. Exchange Online leaves its own upstream stamp (`Authentication-Results: mx.microsoft.com 1; dkim=none (message not signed); dmarc=none`) on the message, written before DKIM signing. When the receiving server is not Microsoft and the path includes Microsoft hops, Microsoft-authserv AR headers are now set aside as upstream stamps (ignored, not flagged) before the topmost header is picked, so the receiving server's own SPF/DKIM/DMARC results are used.
 
 ### Version 1.6.5 (English fork)
