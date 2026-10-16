@@ -56,8 +56,8 @@ Own checks use DNS over HTTPS with the JSON API, trying these resolvers in order
 English is the default UI language (WebExtension i18n); the original French strings are in `_locales/fr`. More languages are planned, see [TODO.md](TODO.md).
 
 ## Versions
-- **1.6.5:** fix: Exchange's `AuthAs: Internal` stamp on mail relayed outbound by Microsoft 365 no longer triggers a false "Suspicious"; the stamp now only matters for all-Microsoft (internal) delivery paths.
 - **1.6.6:** fix: DKIM/DMARC no longer shown as "none" (or a false untrusted-header warning) on Microsoft 365 mail relayed to a non-Microsoft server; Microsoft's pre-signing `mx.microsoft.com` Authentication-Results stamp is now treated as an upstream stamp and ignored.
+- **1.6.5:** fix: Exchange's `AuthAs: Internal` stamp on mail relayed outbound by Microsoft 365 no longer triggers a false "Suspicious"; the stamp now only matters for all-Microsoft (internal) delivery paths.
 - **1.6.4:** new "Internal message (same organization)" verdict for same-tenant Microsoft 365 mail; SPF fail plus aligned but locally unverifiable DKIM is now Suspicious instead of Likely spoofed.
 - **1.6.3:** IPv6 hardening (IPv4-mapped addresses, handoff selection, PTR checks), better Authentication-Results trust, Exchange Online header shapes.
 - **1.6.2:** resolver fallback list, forged `Authentication-Results` warning with verdict downgrade.
