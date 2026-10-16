@@ -207,9 +207,18 @@ export function parseAuthResults(raw) {
 // Other AR headers are not used. Those that claim results and whose authserv-id does not share the
 // organizational domain of the trusted authserv-id are "flagged" as possibly forged; same-org ones
 // (internal multi-hop filtering) are just ignored.
-export function selectAR(arList, topBy) {
+//
+// upstreamMs: the message was received by a non-Microsoft server but came through Microsoft hops (e.g. mail sent from
+// Microsoft 365 to a private server). Microsoft's own Authentication-Results headers (authserv-id such as
+// "mx.microsoft.com") are then upstream stamps made before DKIM signing ("dkim=none (message not signed)",
+// "dmarc=none"). They describe an earlier hop, not our receiving server, so they are set aside (ignored, never
+// flagged) BEFORE the topmost header is picked; otherwise they either win the "topmost" position and hide the
+// receiving server's real pass results, or get flagged as forged.
+export function selectAR(arList, topBy, upstreamMs = false) {
     const byHosts = (Array.isArray(topBy) ? topBy : [topBy]).filter(Boolean).map(h => h.toLowerCase());
     const trusted = [], ignored = [], flagged = [];
+    const upstream = upstreamMs ? arList.filter(a => a.authserv && isMicrosoftHost(a.authserv)) : [];
+    if (upstream.length) arList = arList.filter(a => !upstream.includes(a));
     arList.forEach((a, i) => {
         if (i === 0 || byHosts.includes(a.authserv)) trusted.push(a); else ignored.push(a);
     });
@@ -218,7 +227,7 @@ export function selectAR(arList, topBy) {
         // No authserv-id (Exchange Online internal stamp): cannot be attributed to a host, so it is ignored but not flagged.
         if (a.authserv && a.results.length && !trusted.some(t => t.authserv === a.authserv) && !trustedOrgs.has(orgDomain(a.authserv))) flagged.push(a);
     }
-    return { trusted, ignored: ignored.filter(a => !flagged.includes(a)), flagged };
+    return { trusted, ignored: [...ignored.filter(a => !flagged.includes(a)), ...upstream], flagged };
 }
 
 // ---------- SPF ----------
@@ -447,7 +456,8 @@ export async function analyze(headers, dns) {
     // Own-server host names: "by" of every hop from the top down to (and including) the handoff hop.
     const upTo = claim.handoff ? claim.handoff.index : 0;
     const ownBy = claim.received.slice(0, upTo + 1).map(r => r.by).filter(Boolean);
-    const ar = selectAR(getHeader(headers, "authentication-results").map(parseAuthResults), ownBy);
+    const upstreamMs = !ownBy.some(isMicrosoftHost) && claim.received.some(r => r.by && isMicrosoftHost(r.by));
+    const ar = selectAR(getHeader(headers, "authentication-results").map(parseAuthResults), ownBy, upstreamMs);
     const all = ar.trusted.flatMap(a => a.results.map(r => ({ ...r, by: a.authserv })));
     const own = () => { const sc = dns.scope ? dns.scope() : dns; return { dns: sc, source: { type: "own", get resolvers() { return [...(sc.used || [])]; } } }; };
     const envDomain = claim.returnPath?.domain || "";

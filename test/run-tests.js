@@ -414,5 +414,31 @@ await test("internal: M365 inbound from the internet without the stamp is unaffe
     const r = await L.analyze(m365Headers, dnsV6); assert.equal(r.verdict.level, "authentic");
 });
 
+// Regression: M365 -> private server. The message carries the receiving server's AR (pass) AND Microsoft's upstream stamp
+// ("mx.microsoft.com 1; dkim=none (message not signed); dmarc=none"). The stamp must never override the pass or be flagged.
+const arRecv = "mx.example.net; spf=pass smtp.mailfrom=contoso.example; dkim=pass header.d=contoso.example header.s=selector1; dmarc=pass (p=reject) header.from=contoso.example";
+const arMsStamp = "mx.microsoft.com 1; dkim=none (message not signed) header.d=none;dmarc=none action=none header.from=contoso.example;";
+for (const [label, order] of [["receiving server's AR on top", [arRecv, arMsStamp]], ["Microsoft stamp on top", [arMsStamp, arRecv]]]) {
+    await test("upstream Microsoft AR stamp does not hide pass results (" + label + ")", async () => {
+        const r = await L.analyze({ ...outboundM365Ipv4, "authentication-results": order }, dnsV6);
+        assert.equal(r.confirm.spf.result, "pass");
+        assert.equal(r.confirm.dkim.result, "pass");
+        assert.equal(r.confirm.dmarc.result, "pass");
+        assert.equal(r.confirm.arFlagged.length, 0);
+        assert.equal(r.confirm.arIgnored, 1);
+        assert.equal(r.verdict.level, "authentic");
+    });
+}
+await test("upstream Microsoft AR stamp alone: falls back to own checks, not 'none' from the stamp", async () => {
+    const r = await L.analyze({ ...outboundM365Ipv4, "authentication-results": [arMsStamp] }, dnsV6);
+    assert.equal(r.confirm.arFlagged.length, 0);
+    assert.equal(r.confirm.dkim.source.type, "own");
+    assert.notEqual(r.confirm.dmarc.source.type, "ar");
+});
+await test("Microsoft AR still trusted when Microsoft is the recipient (M365 inbound fixture unchanged)", async () => {
+    const r = await L.analyze(m365Headers, dnsV6);
+    assert.equal(r.confirm.spf.source.type, "ar");
+});
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
