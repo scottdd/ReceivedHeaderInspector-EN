@@ -1,9 +1,15 @@
+### Version 1.6.5 (English fork)
+- Fix: false "Suspicious" on mail sent from Microsoft 365 to an outside server. Exchange Online adds `X-MS-Exchange-Organization-AuthAs: Internal` (and `x-ms-exchange-crosstenant-authas`) in the sender's tenant and the stamp stays on the message when it is relayed outbound. The stamp now only matters for declaring "Internal message": if the delivery path contains any non-Microsoft hop it is ignored completely (no warning row, no verdict change) and SPF/DKIM/DMARC are evaluated as for any other mail. A forged stamp therefore gains an outsider nothing.
+- Unchanged: an all-Microsoft path with an `Authentication-Results` header from a non-Microsoft server is still not called internal and shows a warning.
+- Removed the now-unused "internal stamp, path not internal" warning strings (English and French).
+- Tests: 62, including regression fixtures shaped like outbound Microsoft 365 mail received by an external server (IPv4 and IPv6 handoff).
+
 ### Version 1.6.4 (English fork)
 - New verdict "Internal message (same organization)": a message between two users of one Microsoft 365 tenant never crosses the internet, so SPF/DKIM/DMARC/reverse DNS are shown as grey "N/A (internal)" rows. It is declared only when Exchange's `X-MS-Exchange-Organization-AuthAs: Internal` stamp (or `x-ms-exchange-crosstenant-authas: Internal`) is present, every Received hop is a Microsoft hop (Microsoft host names; ::1, fe80::, 2603:10b6:: or 2a01:111:: addresses only), and any Authentication-Results header comes from Microsoft (for example `mx.microsoft.com 1`).
-- A forged-looking stamp (stamp present but an outside hop or a non-Microsoft Authentication-Results header exists) is not trusted: the message is checked normally, capped at "Suspicious", and a warning row explains why.
+- If the path is all-Microsoft but an Authentication-Results header comes from a non-Microsoft server, the message is not called internal: it is checked normally, capped at "Suspicious", and a warning row explains why.
 - Received parser: handles bare `(::1)` and fe80 addresses with a zone id (`fe80::1%4`).
 - Verdict: SPF fail together with an aligned DKIM signature that cannot be verified locally is now "Suspicious" rather than "Likely spoofed".
-- Tests: 59 (internal message fixture and forged-stamp negative cases).
+- Tests: 59 (internal message fixture and negative cases).
 
 ### Version 1.6.3 (English fork)
 - IPv6 audit and fixes: IPv4-mapped IPv6 addresses (::ffff:a.b.c.d) are treated as IPv4 for SPF, reverse DNS and private-address detection; multicast ranges are skipped when picking the handoff hop; bracketed `[IPv6:...]` HELO literals are cleaned up for display.

@@ -150,3 +150,29 @@ export const forgedInternalForeignAR = {
     ...internalHeaders,
     "authentication-results": ["mx.evil.example.org; spf=pass smtp.mailfrom=contoso.example; dmarc=pass header.from=contoso.example"]
 };
+
+// ---- Outbound M365 message received by an external server (synthetic; documentation addresses) ----
+// Exchange Online stamps X-MS-Exchange-Organization-AuthAs: Internal in the SENDER's tenant and the stamp stays on the
+// message when it is relayed to external recipients. Must be analyzed like any other mail.
+const outboundAR = "mx.example.net; spf=pass smtp.mailfrom=contoso.example; dkim=pass header.d=contoso.example header.s=selector1; dmarc=pass (p=reject) header.from=contoso.example";
+const outboundInnerHops = [
+    "from DS7PR19MB5686.namprd19.prod.outlook.com (2603:10b6:8:71::15) by BYAPR19MB2967.namprd19.prod.outlook.com with HTTPS; Thu, 15 Oct 2026 23:50:01 +0000",
+    "from PH8PR19MB6951.namprd19.prod.outlook.com ([fe80::46a1:74eb:70a2:6ca%4]) by PH8PR19MB6951.namprd19.prod.outlook.com with mapi id 15.21.0522.012; Thu, 15 Oct 2026 23:50:00 +0000"
+];
+const outboundBase = {
+    "x-ms-exchange-organization-authas": ["Internal"],
+    "x-ms-exchange-crosstenant-authas": ["Internal"],
+    "x-ms-exchange-crosstenant-id": ["00000000-1111-2222-3333-444444444444"],
+    "authentication-results": [outboundAR],
+    "dkim-signature": ["v=1; a=rsa-sha256; c=relaxed/relaxed; d=contoso.example; s=selector1; h=From:Date:Subject; bh=x; b=y"],
+    "from": ["Alex Coworker <alex@contoso.example>"],
+    "return-path": ["<alex@contoso.example>"],
+    "subject": ["Hello from the office"]
+};
+export const outboundM365Ipv4 = { ...outboundBase, "received": [
+    "from NAM12-BN8-obe.outbound.protection.outlook.example (mail-bn8nam12on2072.outbound.protection.outlook.example [203.0.113.40]) by mx.example.net (Postfix) with ESMTPS id 5A1; Thu, 15 Oct 2026 18:50:03 -0500 (CDT)",
+    "from BYAPR19MB2967.namprd19.prod.outlook.com (2603:10b6:a03:11c::10) by SA1PR19MB1234.namprd19.prod.outlook.com (2603:10b6:806:1::2) with Microsoft SMTP Server (version=TLS1_2) id 15.20.9; Thu, 15 Oct 2026 23:50:02 +0000",
+    ...outboundInnerHops] };
+export const outboundM365Ipv6 = { ...outboundBase, "received": [
+    "from NAM12-DM6-obe.outbound.protection.outlook.example (mail-dm6nam12on20700.outbound.protection.outlook.example [IPv6:2001:db8:f400:fe::700]) by mx.example.net (Postfix) with ESMTPS id 5A2; Thu, 15 Oct 2026 18:50:03 -0500 (CDT)",
+    ...outboundInnerHops] };

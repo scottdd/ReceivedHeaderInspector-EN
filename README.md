@@ -46,6 +46,7 @@ An internal message between two users of the same Microsoft 365 tenant. It never
 ### How results are decided
 - **Authentication-Results first.** The add-on trusts the topmost `Authentication-Results` header, or one whose server name matches the server in the topmost `Received` header, because your own mail server saw the real connection. Results are shown as "from Authentication-Results by <server>".
 - **Own checks as fallback.** If a result is missing, the add-on does its own DNS checks (SPF evaluation, DMARC record and alignment, reverse DNS) and labels them "own DNS check via <resolver>". DKIM signatures are not verified locally in this case and show as neutral.
+- **Internal Microsoft 365 mail.** Mail between two users of one Microsoft 365 tenant never leaves Exchange Online. It is shown as "Internal message (same organization)", with SPF/DKIM/DMARC/reverse DNS as grey N/A rows, only when Exchange's `X-MS-Exchange-Organization-AuthAs: Internal` stamp is present **and** every `Received` hop is a Microsoft hop **and** any `Authentication-Results` header comes from Microsoft. That stamp is added in the sender's tenant and stays on the message when Microsoft 365 relays it to outside recipients, so as soon as the delivery path includes any non-Microsoft hop the stamp is ignored completely (no warning, no change to the verdict) and the message is checked like any other mail. If the path is all-Microsoft but an `Authentication-Results` header comes from a non-Microsoft server, the message is not called internal: it is checked normally, capped at "Suspicious", and an amber warning row is shown.
 - **Forged-header warning.** An extra `Authentication-Results` header from a different organization than your mail server is flagged with an amber warning and lowers a "Likely authentic" verdict to "Suspicious".
 
 ### DNS lookups
@@ -55,7 +56,8 @@ Own checks use DNS over HTTPS with the JSON API, trying these resolvers in order
 English is the default UI language (WebExtension i18n); the original French strings are in `_locales/fr`. More languages are planned, see [TODO.md](TODO.md).
 
 ## Versions
-- **1.6.4:** new "Internal message (same organization)" verdict for same-tenant Microsoft 365 mail with a forged-stamp check; SPF fail plus aligned but locally unverifiable DKIM is now Suspicious instead of Likely spoofed.
+- **1.6.5:** fix: Exchange's `AuthAs: Internal` stamp on mail relayed outbound by Microsoft 365 no longer triggers a false "Suspicious"; the stamp now only matters for all-Microsoft (internal) delivery paths.
+- **1.6.4:** new "Internal message (same organization)" verdict for same-tenant Microsoft 365 mail; SPF fail plus aligned but locally unverifiable DKIM is now Suspicious instead of Likely spoofed.
 - **1.6.3:** IPv6 hardening (IPv4-mapped addresses, handoff selection, PTR checks), better Authentication-Results trust, Exchange Online header shapes.
 - **1.6.2:** resolver fallback list, forged `Authentication-Results` warning with verdict downgrade.
 - **1.6.1:** new Claim / Confirm / Verdict panel, `Authentication-Results` parsing, own SPF/DMARC/reverse-DNS checks.

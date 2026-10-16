@@ -78,7 +78,7 @@ function renderConfirm(c) {
     }
     if (c.internalStampWarning) {
         const w = c.internalStampWarning;
-        confirmRow(t("labelARWarn"), "warn", w.reason === "ar" ? t("internalStampWarnAr", w.authserv || "?") : t("internalStampWarnPath"),
+        confirmRow(t("labelARWarn"), "warn", t("internalStampWarnAr", w.authserv || "?"),
             [{ text: t("internalStampWarnDetail") }], { type: "none" });
     }
     const spfMain = spf.source.type === "ar"

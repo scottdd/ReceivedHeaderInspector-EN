@@ -209,9 +209,6 @@
   "internalHopNote": {
     "message": "Microsoft 365 internal hop (not an internet handoff)"
   },
-  "internalStampWarnPath": {
-    "message": "Internal stamp present, but the delivery path was not internal"
-  },
   "internalStampWarnAr": {
     "message": "Internal stamp present, but an Authentication-Results header came from a non-Microsoft server ($1)"
   },

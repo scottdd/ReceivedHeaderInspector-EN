@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import * as L from "../src/messagePopup/lib.js";
 import { joinTxt, createDns } from "../src/messagePopup/dns.js";
-import { authenticHeaders, forgedARHeaders, v6Headers, v6NoArHeaders, m365Headers, gmailHeaders, internalHeaders, forgedInternalExternalHop, forgedInternalForeignAR, spoofHeaders, mockDns, zone } from "./fixtures.js";
+import { authenticHeaders, forgedARHeaders, v6Headers, v6NoArHeaders, m365Headers, gmailHeaders, internalHeaders, forgedInternalExternalHop, forgedInternalForeignAR, outboundM365Ipv4, outboundM365Ipv6, spoofHeaders, mockDns, zone } from "./fixtures.js";
 
 let pass = 0, fail = 0;
 async function test(name, fn) {
@@ -371,23 +371,44 @@ await test("internal: no stamp, all-Microsoft path → not internal, no warning"
     const r = await L.analyze(h, dnsV6);
     assert.notEqual(r.verdict.level, "internal"); assert.equal(r.confirm.internalStampWarning, null);
 });
-await test("internal NEGATIVE: AuthAs: Internal forged on a message with an external hop → not Internal, warning, capped at Suspicious", async () => {
-    assert.deepEqual(L.detectInternal(forgedInternalExternalHop), { state: "forged", reason: "path" });
+await test("internal: stamp + external hop → stamp ignored completely (no warning, no docking, normal analysis)", async () => {
+    assert.deepEqual(L.detectInternal(forgedInternalExternalHop), { state: "none" });
     const r = await L.analyze(forgedInternalExternalHop, dnsV6);
     assert.notEqual(r.verdict.level, "internal"); assert.ok(!r.confirm.internal);
-    assert.equal(r.confirm.internalStampWarning.reason, "path");
-    assert.notEqual(r.verdict.level, "authentic");
+    assert.equal(r.confirm.internalStampWarning, null);
+    assert.notEqual(r.verdict.key, "reasonDockedInternalStamp"); assert.notEqual(r.verdict.key, "reasonMixedInternalStamp");
+    assert.equal(r.confirm.dmarc.source.type, "ar"); // the Authentication-Results rules apply as for any other mail
+});
+await test("regression: outbound M365 mail (IPv4 handoff) with Internal stamp, received by an external server → Likely authentic, no warning", async () => {
+    const r = await L.analyze(outboundM365Ipv4, dnsV6);
+    assert.equal(r.verdict.level, "authentic"); assert.equal(r.verdict.key, "reasonDmarcPass");
+    assert.equal(r.confirm.internalStampWarning, null); assert.ok(!r.confirm.internal);
+    assert.equal(r.confirm.arFlagged.length, 0);
+    assert.equal(r.claim.handoff.index, 0); assert.equal(r.claim.handoff.hop.ip, "203.0.113.40");
+    assert.equal(r.confirm.spf.result, "pass"); assert.equal(r.confirm.dkim.result, "pass"); assert.equal(r.confirm.dmarc.result, "pass");
+    assert.equal(r.confirm.spf.source.by, "mx.example.net");
+});
+await test("regression: outbound M365 mail (IPv6 handoff) with Internal stamp → Likely authentic, no warning", async () => {
+    const r = await L.analyze(outboundM365Ipv6, dnsV6);
+    assert.equal(r.verdict.level, "authentic"); assert.equal(r.confirm.internalStampWarning, null);
+    assert.equal(r.claim.handoff.hop.ip, "2001:db8:f400:fe::700");
+});
+await test("outbound M365 mail without Authentication-Results: stamp still ignored, own-DNS fallback, no warning", async () => {
+    const h = { ...outboundM365Ipv4 }; delete h["authentication-results"];
+    const r = await L.analyze(h, dnsV6);
+    assert.equal(r.confirm.internalStampWarning, null); assert.equal(r.confirm.spf.source.type, "own");
+    assert.notEqual(r.verdict.level, "internal");
 });
 await test("internal NEGATIVE: stamp + Microsoft path but foreign Authentication-Results → not Internal, warning", async () => {
-    assert.deepEqual(L.detectInternal(forgedInternalForeignAR), { state: "forged", reason: "ar", authserv: "mx.evil.example.org" });
+    assert.deepEqual(L.detectInternal(forgedInternalForeignAR), { state: "forged", authserv: "mx.evil.example.org" });
     const r = await L.analyze(forgedInternalForeignAR, dnsV6);
-    assert.notEqual(r.verdict.level, "internal"); assert.equal(r.confirm.internalStampWarning.reason, "ar");
+    assert.notEqual(r.verdict.level, "internal"); assert.equal(r.confirm.internalStampWarning.authserv, "mx.evil.example.org");
     assert.equal(r.verdict.level, "suspicious"); // AR claims dmarc=pass, but the forged stamp docks authentic to suspicious
     assert.equal(r.verdict.key, "reasonDockedInternalStamp");
 });
 await test("internal NEGATIVE: Microsoft hostnames but public Microsoft IPv4 hop (cross-tenant) is not an internal path", () => {
     const h = { ...internalHeaders, received: ["from NAM_obe.outbound.protection.outlook.example (x.outbound.protection.outlook.com [40.107.95.71]) by BYAPR19MB2967.namprd19.prod.outlook.com with ESMTPS; Thu, 15 Oct 2026 10:42:00 +0000"] };
-    assert.equal(L.detectInternal(h).state, "forged");
+    assert.equal(L.detectInternal(h).state, "none"); // stamp ignored on a non-internal path
 });
 await test("internal: M365 inbound from the internet without the stamp is unaffected (still Suspicious/authentic by normal rules)", async () => {
     const r = await L.analyze(m365Headers, dnsV6); assert.equal(r.verdict.level, "authentic");

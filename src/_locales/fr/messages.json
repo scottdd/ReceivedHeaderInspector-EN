@@ -209,9 +209,6 @@
   "internalHopNote": {
     "message": "Saut interne Microsoft 365 (pas une remise depuis Internet)"
   },
-  "internalStampWarnPath": {
-    "message": "Marqueur « interne » présent, mais le chemin de livraison n'était pas interne"
-  },
   "internalStampWarnAr": {
     "message": "Marqueur « interne » présent, mais un en-tête Authentication-Results provient d'un serveur non Microsoft ($1)"
   },
